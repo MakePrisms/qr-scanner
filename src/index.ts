@@ -1,3 +1,5 @@
+import { Scanner } from './scanner.js';
+import { CameraManager } from './camera.js';
 import { scanImage } from './scan-image.js';
 import type {
   ScanResult,
@@ -26,9 +28,84 @@ export type {
  * High-performance QR code scanner for the web, powered by ZXing-C++ WebAssembly.
  */
 class QrScanner {
-  /**
-   * Scan a single image for QR codes.
-   */
+  private scanner: Scanner;
+
+  constructor(
+    videoElement: HTMLVideoElement,
+    onDecode: (result: ScanResult) => void,
+    options: ScannerOptions = {},
+  ) {
+    this.scanner = new Scanner(videoElement, onDecode, options);
+  }
+
+  /** Start camera and begin scanning. Resolves when camera is ready. */
+  async start(): Promise<void> {
+    return this.scanner.start();
+  }
+
+  /** Stop scanning and release the camera stream. */
+  stop(): void {
+    this.scanner.stop();
+  }
+
+  /** Stop scanning, release camera, terminate worker, clean up DOM. */
+  destroy(): void {
+    this.scanner.destroy();
+  }
+
+  /** Pause scanning. If stopStreamImmediately is false, camera stays on. */
+  async pause(stopStreamImmediately?: boolean): Promise<boolean> {
+    return this.scanner.pause(stopStreamImmediately);
+  }
+
+  /** Switch to a different camera by facing mode or device ID. */
+  async setCamera(facingModeOrDeviceId: FacingMode | DeviceId): Promise<void> {
+    return this.scanner.setCamera(facingModeOrDeviceId);
+  }
+
+  /** Check if the current camera supports flash/torch. */
+  async hasFlash(): Promise<boolean> {
+    return this.scanner.hasFlash();
+  }
+
+  /** Whether flash is currently on. */
+  isFlashOn(): boolean {
+    return this.scanner.isFlashOn();
+  }
+
+  /** Toggle flash on/off. */
+  async toggleFlash(): Promise<void> {
+    return this.scanner.toggleFlash();
+  }
+
+  /** Turn flash on. */
+  async turnFlashOn(): Promise<void> {
+    return this.scanner.turnFlashOn();
+  }
+
+  /** Turn flash off. */
+  async turnFlashOff(): Promise<void> {
+    return this.scanner.turnFlashOff();
+  }
+
+  /** Set the inversion mode for detecting inverted QR codes. */
+  setInversionMode(mode: InversionMode): void {
+    this.scanner.setInversionMode(mode);
+  }
+
+  // --- Static methods ---
+
+  /** Check if the device has at least one camera. */
+  static hasCamera(): Promise<boolean> {
+    return CameraManager.hasCamera();
+  }
+
+  /** List available cameras. Pass true to request labels (triggers permission prompt). */
+  static listCameras(requestLabels?: boolean): Promise<Camera[]> {
+    return CameraManager.listCameras(requestLabels);
+  }
+
+  /** Scan a single image (not a video stream). */
   static scanImage(
     source:
       | HTMLImageElement
