@@ -43,6 +43,11 @@ export class CameraManager {
       throw err;
     }
 
+    // On some devices (e.g. Samsung S24 + Brave), facingMode: 'environment'
+    // picks an ultrawide camera that lacks autofocus. Check and switch to a
+    // better camera BEFORE showing on screen to avoid visible flicker.
+    await this.ensureBestCamera();
+
     video.srcObject = this.stream;
     video.setAttribute('playsinline', 'true');
     await video.play();
@@ -124,6 +129,118 @@ export class CameraManager {
       });
     } catch {
       throw new Error('Flash/torch is not supported on this device');
+    }
+  }
+
+  /**
+   * If the current camera lacks continuous autofocus (e.g. an ultrawide sensor
+   * picked by facingMode: 'environment'), find a better camera with the same
+   * facing mode and replace this.stream. Called before assigning to the video
+   * element so the user never sees the wrong camera.
+   */
+  private async ensureBestCamera(): Promise<void> {
+    if (this.facingMode !== 'environment' && this.facingMode !== 'user') {
+      return;
+    }
+
+    const track = this.getVideoTrack();
+    if (!track) return;
+
+    try {
+      const capabilities = track.getCapabilities() as MediaTrackCapabilities & {
+        focusMode?: string[];
+      };
+      if (capabilities.focusMode?.includes('continuous')) {
+        return; // Current camera already has autofocus
+      }
+    } catch {
+      return;
+    }
+
+    // Current camera lacks continuous autofocus.
+    // Enumerate devices while stream is active (ensures deviceIds are available).
+    const currentDeviceId = track.getSettings().deviceId;
+
+    let devices: MediaDeviceInfo[];
+    try {
+      devices = await navigator.mediaDevices.enumerateDevices();
+    } catch {
+      return;
+    }
+    if (!Array.isArray(devices)) return;
+
+    const candidates = devices.filter(
+      (d) => d.kind === 'videoinput' && d.deviceId !== currentDeviceId,
+    );
+    if (candidates.length === 0) return;
+
+    // Stop current stream — mobile devices only allow one active camera
+    this.stop();
+
+    for (const candidate of candidates) {
+      let candidateStream: MediaStream;
+      try {
+        candidateStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            deviceId: { exact: candidate.deviceId },
+            width: this.resolution?.width ?? { ideal: 1920 },
+            height: this.resolution?.height ?? { ideal: 1080 },
+          },
+          audio: false,
+        });
+      } catch {
+        continue;
+      }
+
+      const candidateTrack = candidateStream.getVideoTracks()[0];
+      if (!candidateTrack) {
+        for (const t of candidateStream.getTracks()) t.stop();
+        continue;
+      }
+
+      // Must match the desired facing mode
+      const candidateSettings = candidateTrack.getSettings() as MediaTrackSettings & {
+        facingMode?: string;
+      };
+      if (candidateSettings.facingMode && candidateSettings.facingMode !== this.facingMode) {
+        for (const t of candidateStream.getTracks()) t.stop();
+        continue;
+      }
+
+      // Check if this camera supports continuous autofocus
+      try {
+        const candidateCaps = candidateTrack.getCapabilities() as MediaTrackCapabilities & {
+          focusMode?: string[];
+        };
+        if (candidateCaps.focusMode?.includes('continuous')) {
+          this.stream = candidateStream;
+          return;
+        }
+      } catch {
+        // Can't check capabilities, skip
+      }
+
+      for (const t of candidateStream.getTracks()) t.stop();
+    }
+
+    // No better camera found — re-open the original
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          deviceId: currentDeviceId ? { exact: currentDeviceId } : undefined,
+          width: this.resolution?.width ?? { ideal: 1920 },
+          height: this.resolution?.height ?? { ideal: 1080 },
+        },
+        audio: false,
+      });
+    } catch {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia(
+          this.buildConstraints(),
+        );
+      } catch {
+        // Could not recover camera
+      }
     }
   }
 

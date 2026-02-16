@@ -210,4 +210,118 @@ describe('CameraManager', () => {
 
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
   });
+
+  describe('camera upgrade (autofocus detection)', () => {
+    it('switches to a camera with continuous autofocus when initial camera lacks it', async () => {
+      // Initial camera: ultrawide with no autofocus
+      const ultrawideTrack = createMockTrack({
+        getCapabilities: vi.fn().mockReturnValue({ focusMode: ['manual'] }),
+        getSettings: vi.fn().mockReturnValue({ deviceId: 'ultrawide-id', facingMode: 'environment' }),
+      });
+      const ultrawideStream = createMockStream([ultrawideTrack]);
+
+      // Better camera: main sensor with autofocus
+      const mainTrack = createMockTrack({
+        getCapabilities: vi.fn().mockReturnValue({ focusMode: ['manual', 'single-shot', 'continuous'] }),
+        getSettings: vi.fn().mockReturnValue({ deviceId: 'main-id', facingMode: 'environment' }),
+      });
+      const mainStream = createMockStream([mainTrack]);
+
+      vi.mocked(navigator.mediaDevices.getUserMedia)
+        .mockResolvedValueOnce(ultrawideStream)  // initial start
+        .mockResolvedValueOnce(mainStream);       // upgrade candidate
+
+      vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue([
+        { kind: 'videoinput', deviceId: 'ultrawide-id', groupId: '', label: 'Ultrawide' } as MediaDeviceInfo,
+        { kind: 'videoinput', deviceId: 'main-id', groupId: '', label: 'Main' } as MediaDeviceInfo,
+      ]);
+
+      const camera = new CameraManager();
+      const video = createMockVideo();
+      await camera.start(video);
+
+      // Should have stopped the ultrawide first, then switched to main
+      expect(ultrawideTrack.stop).toHaveBeenCalled();
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
+      // Video gets the upgraded stream (assigned by start() after ensureBestCamera)
+      expect(video.srcObject).toBe(mainStream);
+    });
+
+    it('keeps current camera when it already has continuous autofocus', async () => {
+      const track = createMockTrack({
+        getCapabilities: vi.fn().mockReturnValue({ focusMode: ['continuous'] }),
+        getSettings: vi.fn().mockReturnValue({ deviceId: 'good-cam' }),
+      });
+      const stream = createMockStream([track]);
+      vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValue(stream);
+
+      const camera = new CameraManager();
+      const video = createMockVideo();
+      await camera.start(video);
+
+      // Should not enumerate or try other cameras
+      expect(navigator.mediaDevices.enumerateDevices).not.toHaveBeenCalled();
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips upgrade when using explicit deviceId', async () => {
+      const track = createMockTrack({
+        getCapabilities: vi.fn().mockReturnValue({ focusMode: ['manual'] }),
+        getSettings: vi.fn().mockReturnValue({ deviceId: 'specific-cam' }),
+      });
+      const stream = createMockStream([track]);
+      vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValue(stream);
+
+      // User explicitly chose a device — don't override their choice
+      const camera = new CameraManager({ preferredCamera: 'specific-cam' });
+      const video = createMockVideo();
+      await camera.start(video);
+
+      expect(navigator.mediaDevices.enumerateDevices).not.toHaveBeenCalled();
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips cameras with wrong facing mode and falls back to original', async () => {
+      // Initial: back camera without autofocus
+      const backTrack = createMockTrack({
+        getCapabilities: vi.fn().mockReturnValue({ focusMode: ['manual'] }),
+        getSettings: vi.fn().mockReturnValue({ deviceId: 'back-no-af', facingMode: 'environment' }),
+      });
+      const backStream = createMockStream([backTrack]);
+
+      // Front camera has autofocus but wrong facing mode
+      const frontTrack = createMockTrack({
+        getCapabilities: vi.fn().mockReturnValue({ focusMode: ['continuous'] }),
+        getSettings: vi.fn().mockReturnValue({ deviceId: 'front-cam', facingMode: 'user' }),
+      });
+      const frontStream = createMockStream([frontTrack]);
+
+      // Fallback: re-open original camera
+      const fallbackTrack = createMockTrack({
+        getCapabilities: vi.fn().mockReturnValue({ focusMode: ['manual'] }),
+        getSettings: vi.fn().mockReturnValue({ deviceId: 'back-no-af', facingMode: 'environment' }),
+      });
+      const fallbackStream = createMockStream([fallbackTrack]);
+
+      vi.mocked(navigator.mediaDevices.getUserMedia)
+        .mockResolvedValueOnce(backStream)     // initial start
+        .mockResolvedValueOnce(frontStream)    // candidate (wrong facing mode)
+        .mockResolvedValueOnce(fallbackStream); // fallback to original
+
+      vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue([
+        { kind: 'videoinput', deviceId: 'back-no-af', groupId: '', label: 'Back' } as MediaDeviceInfo,
+        { kind: 'videoinput', deviceId: 'front-cam', groupId: '', label: 'Front' } as MediaDeviceInfo,
+      ]);
+
+      const camera = new CameraManager();
+      const video = createMockVideo();
+      await camera.start(video);
+
+      // Front camera opened but rejected due to facing mode mismatch
+      expect(frontTrack.stop).toHaveBeenCalled();
+      // Should have fallen back to re-opening original by deviceId
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(3);
+      expect(video.srcObject).toBe(fallbackStream);
+    });
+  });
 });

@@ -53,6 +53,21 @@ export default function App() {
       {lastResult && (
         <div style={{ marginTop: 16 }}>
           <ResultDisplay result={lastResult} />
+          <button
+            onClick={() => setLastResult(null)}
+            style={{
+              marginTop: 8,
+              padding: '6px 12px',
+              background: '#666',
+              color: 'white',
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontSize: 13,
+            }}
+          >
+            Clear Result
+          </button>
         </div>
       )}
     </div>
