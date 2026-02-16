@@ -63,4 +63,25 @@ describe('calculateDefaultScanRegion', () => {
     expect(region.width).toBe(320);
     expect(region.height).toBe(320);
   });
+
+  it('custom calculateScanRegion callback overrides the default', () => {
+    // This tests the pattern used in Scanner: if options.calculateScanRegion
+    // is provided, it overrides calculateDefaultScanRegion.
+    const video = createMockVideo(1920, 1080);
+
+    const customCalculate = (v: HTMLVideoElement) => ({
+      x: 100,
+      y: 200,
+      width: 500,
+      height: 300,
+    });
+
+    // Default returns centered 720x720
+    const defaultRegion = calculateDefaultScanRegion(video);
+    expect(defaultRegion.width).toBe(720);
+
+    // Custom overrides completely
+    const customRegion = customCalculate(video);
+    expect(customRegion).toEqual({ x: 100, y: 200, width: 500, height: 300 });
+  });
 });

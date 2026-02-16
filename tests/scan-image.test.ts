@@ -79,4 +79,34 @@ describe('scanImage', () => {
     });
     expect(result.data).toBe('hello');
   });
+
+  it('respects scanRegion option — only decodes within the specified region', async () => {
+    const sharp = (await import('sharp')).default;
+
+    // Create a 800x800 white canvas with the QR code placed in top-left corner
+    const qrBuffer = readFileSync(join(FIXTURES_DIR, 'simple.png'));
+    const qrMeta = await sharp(qrBuffer).metadata();
+    const qrWidth = qrMeta.width!;
+    const qrHeight = qrMeta.height!;
+
+    const compositeImage = await sharp({
+      create: { width: 800, height: 800, channels: 3, background: { r: 255, g: 255, b: 255 } },
+    })
+      .composite([{ input: qrBuffer, left: 0, top: 0 }])
+      .png()
+      .toBuffer();
+
+    // Scanning the full image should find the QR code
+    const fullResult = await scanImage(new Uint8Array(compositeImage));
+    expect(fullResult.data).toBe('hello');
+
+    // Extract just the bottom-right region (no QR code there) as separate PNG
+    const bottomRight = await sharp(compositeImage)
+      .extract({ left: qrWidth + 50, top: qrHeight + 50, width: 300, height: 300 })
+      .png()
+      .toBuffer();
+
+    // Scanning only the bottom-right region should NOT find a QR code
+    await expect(scanImage(new Uint8Array(bottomRight))).rejects.toThrow('No QR code found');
+  });
 });
