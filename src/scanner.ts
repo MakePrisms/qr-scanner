@@ -1,5 +1,6 @@
 import { CameraManager } from './camera.js';
 import { FrameExtractor } from './frame-extractor.js';
+import { ScanOverlay } from './overlay.js';
 import { calculateDefaultScanRegion } from './scan-region.js';
 import type {
   ScannerOptions,
@@ -20,6 +21,7 @@ export class Scanner {
   private camera: CameraManager;
   private frameExtractor: FrameExtractor | null = null;
   private worker: Worker | null = null;
+  private overlay: ScanOverlay | null = null;
   private active = false;
   private paused = false;
   private destroyed = false;
@@ -64,6 +66,20 @@ export class Scanner {
       });
     }
 
+    // Set up overlay if needed
+    if (!this.overlay && (this.options.highlightScanRegion || this.options.highlightCodeOutline || this.options.overlay)) {
+      try {
+        this.overlay = new ScanOverlay(this.video, {
+          highlightScanRegion: this.options.highlightScanRegion ?? false,
+          highlightCodeOutline: this.options.highlightCodeOutline ?? false,
+          customOverlay: this.options.overlay,
+        });
+        this.overlay.setup();
+      } catch {
+        // Overlay setup failed (e.g., no parent element) — continue without overlay
+      }
+    }
+
     // Start frame extraction loop
     this.frameExtractor.start((imageData) => {
       this.sendToWorker(imageData);
@@ -86,6 +102,8 @@ export class Scanner {
     this.stop();
     this.frameExtractor?.destroy();
     this.frameExtractor = null;
+    this.overlay?.destroy();
+    this.overlay = null;
     this.worker?.terminate();
     this.worker = null;
     this.destroyed = true;
@@ -273,9 +291,21 @@ self.postMessage({ type: 'ready' });`;
 
     if (response.type === 'result') {
       if (response.results.length > 0) {
-        this.onDecode(response.results[0]);
+        const result = response.results[0];
+        this.onDecode(result);
+
+        // Update overlay
+        if (this.overlay) {
+          this.overlay.updateScanRegion(this.getCurrentScanRegion());
+          this.overlay.updateCodeOutline(result.cornerPoints);
+        }
       } else {
         this.options.onDecodeError?.('No QR code found');
+
+        // Hide code outline when no QR found
+        if (this.overlay) {
+          this.overlay.updateCodeOutline(null);
+        }
       }
     }
   }
