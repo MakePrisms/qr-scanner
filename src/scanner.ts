@@ -105,6 +105,7 @@ export class Scanner {
           customOverlay: this.options.overlay,
         });
         this.overlay.setup();
+        this.overlay.updateScanRegion(this.getCurrentScanRegion());
       } catch {
         // Overlay setup failed (e.g., no parent element) — continue without overlay
       }
@@ -271,8 +272,9 @@ export class Scanner {
 
         // Update overlay
         if (this.overlay) {
-          this.overlay.updateScanRegion(this.getCurrentScanRegion());
-          this.overlay.updateCodeOutline(result.cornerPoints);
+          const region = this.getCurrentScanRegion();
+          this.overlay.updateScanRegion(region);
+          this.overlay.updateCodeOutline(result.cornerPoints, region);
         }
       } else {
         this.options.onDecodeError?.('No QR code found');

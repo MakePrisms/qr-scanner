@@ -51,7 +51,7 @@ export class ScanOverlay {
     this.positionOverlayToRegion(region);
   }
 
-  updateCodeOutline(cornerPoints: Point[] | null): void {
+  updateCodeOutline(cornerPoints: Point[] | null, scanRegion?: ScanRegion): void {
     if (!this.codeOutlineEl) return;
 
     if (!cornerPoints || cornerPoints.length < 4) {
@@ -64,13 +64,17 @@ export class ScanOverlay {
     const polygon = this.codeOutlineEl.querySelector('polygon');
     if (!polygon) return;
 
-    // Convert corner points from video coordinates to display coordinates
+    // Corner points are relative to the cropped scan region.
+    // Add the scan region offset to get full video coordinates,
+    // then scale to display coordinates.
+    const regionX = scanRegion?.x ?? 0;
+    const regionY = scanRegion?.y ?? 0;
     const videoRect = this.video.getBoundingClientRect();
     const scaleX = videoRect.width / this.video.videoWidth;
     const scaleY = videoRect.height / this.video.videoHeight;
 
     const points = cornerPoints
-      .map((p) => `${p.x * scaleX},${p.y * scaleY}`)
+      .map((p) => `${(p.x + regionX) * scaleX},${(p.y + regionY) * scaleY}`)
       .join(' ');
 
     polygon.setAttribute('points', points);
