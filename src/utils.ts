@@ -53,7 +53,7 @@ async function resolveImageSource(
   }
 
   // URL or string
-  const url = source instanceof URL ? source.href : source;
+  const url = source instanceof URL ? source.href : source as string;
   const response = await fetch(url);
   const blob = await response.blob();
   return createImageBitmapFromBlob(blob);

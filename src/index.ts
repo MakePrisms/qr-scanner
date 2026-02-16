@@ -1,6 +1,7 @@
 import { Scanner } from './scanner.js';
 import { CameraManager } from './camera.js';
 import { scanImage } from './scan-image.js';
+import { setZXingModuleOverrides } from 'zxing-wasm/reader';
 import type {
   ScanResult,
   ScanRegion,
@@ -103,6 +104,30 @@ class QrScanner {
   /** List available cameras. Pass true to request labels (triggers permission prompt). */
   static listCameras(requestLabels?: boolean): Promise<Camera[]> {
     return CameraManager.listCameras(requestLabels);
+  }
+
+  /**
+   * Pre-load the WASM binary so it's ready when the scanner starts.
+   * Call this early (e.g., on app init) to avoid delay on first scan.
+   */
+  static async preload(): Promise<void> {
+    // Trigger WASM loading by doing a minimal scan
+    const pixel = new Uint8ClampedArray([255, 255, 255, 255]);
+    const img = new ImageData(pixel, 1, 1);
+    try {
+      await scanImage(img);
+    } catch {
+      // Expected — no QR code in a 1x1 image. The point was to load WASM.
+    }
+  }
+
+  /**
+   * Configure WASM loading. Call before creating any scanner instance.
+   * @example
+   * QrScanner.configureWasm({ locateFile: (filename) => `/wasm/${filename}` });
+   */
+  static configureWasm(overrides: Partial<EmscriptenModule>): void {
+    setZXingModuleOverrides(overrides);
   }
 
   /** Scan a single image (not a video stream). */
