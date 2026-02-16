@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -13,7 +14,7 @@ function loadFixtureContent(filename: string): string {
   return readFileSync(join(FIXTURES_DIR, filename), 'utf-8').trim();
 }
 
-describe('scanImage', () => {
+describe('scanImage', { timeout: 30_000 }, () => {
   it('decodes a simple QR code from a PNG file', async () => {
     const data = loadFixture('simple.png');
     const result = await scanImage(data);

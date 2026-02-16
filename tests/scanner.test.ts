@@ -58,14 +58,8 @@ describe('Scanner', () => {
       onerror: null,
     };
 
-    // Mock Blob & URL.createObjectURL for inline worker creation
+    // Mock Worker constructor — the scanner creates Worker with a URL
     vi.stubGlobal('Worker', vi.fn().mockImplementation(() => mockWorker));
-    vi.stubGlobal('Blob', class MockBlob {
-      constructor(public parts: unknown[], public options?: BlobPropertyBag) {}
-    });
-    const mockUrl = 'blob:mock-worker-url';
-    URL.createObjectURL = vi.fn().mockReturnValue(mockUrl);
-    URL.revokeObjectURL = vi.fn();
 
     // Mock requestAnimationFrame
     vi.stubGlobal('requestAnimationFrame', vi.fn().mockReturnValue(1));

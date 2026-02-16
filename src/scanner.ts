@@ -14,6 +14,36 @@ import type { ReaderOptions } from 'zxing-wasm/reader';
 
 type OnDecodeCallback = (result: ScanResult) => void;
 
+/**
+ * Custom worker URL override. When set, this URL is used instead of the
+ * default bundler-resolved worker. Useful for CJS consumers or non-standard
+ * bundler setups.
+ */
+let customWorkerUrl: string | URL | null = null;
+
+export function setWorkerUrl(url: string | URL): void {
+  customWorkerUrl = url;
+}
+
+function resolveWorkerUrl(): string | URL {
+  if (customWorkerUrl) {
+    return customWorkerUrl;
+  }
+  // Standard pattern: modern bundlers (Vite, webpack 5, Parcel, esbuild)
+  // resolve `new URL('./file', import.meta.url)` at build time,
+  // copying worker.js to the output directory and returning the correct URL.
+  // Falls back gracefully for CJS builds where import.meta is unavailable.
+  try {
+    return new URL('./worker.js', import.meta.url);
+  } catch {
+    throw new Error(
+      'wasm-qr-scanner: Could not resolve worker URL. ' +
+      'Call QrScanner.setWorkerUrl() with the path to the worker script before creating a scanner. ' +
+      'Example: QrScanner.setWorkerUrl("/path/to/wasm-qr-scanner/dist/worker.js")',
+    );
+  }
+}
+
 export class Scanner {
   private video: HTMLVideoElement;
   private onDecode: OnDecodeCallback;
@@ -198,63 +228,8 @@ export class Scanner {
   }
 
   private createWorker(): Worker {
-    // Create an inline worker that imports the worker module
-    const workerCode = `import { readBarcodes } from 'zxing-wasm/reader';
-
-const defaultOptions = {
-  formats: ['QRCode'],
-  tryHarder: true,
-  tryInvert: true,
-  tryRotate: true,
-  tryDenoise: false,
-  tryDownscale: true,
-  maxNumberOfSymbols: 1,
-};
-
-let currentOptions = { ...defaultOptions };
-
-function mapPosition(position) {
-  return [
-    position.topLeft,
-    position.topRight,
-    position.bottomRight,
-    position.bottomLeft,
-  ];
-}
-
-self.onmessage = async (e) => {
-  const data = e.data;
-
-  if (data.type === 'configure') {
-    currentOptions = { ...defaultOptions, ...data.options, formats: ['QRCode'] };
-    return;
-  }
-
-  if (data.type === 'decode') {
-    try {
-      const results = await readBarcodes(data.imageData, currentOptions);
-      const mapped = results
-        .filter((r) => r.isValid)
-        .map((r) => ({
-          data: r.text,
-          cornerPoints: mapPosition(r.position),
-        }));
-      self.postMessage({ type: 'result', results: mapped });
-    } catch (err) {
-      self.postMessage({
-        type: 'error',
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-};
-
-self.postMessage({ type: 'ready' });`;
-
-    const blob = new Blob([workerCode], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
-    const worker = new Worker(url, { type: 'module' });
-    URL.revokeObjectURL(url);
+    const workerUrl = resolveWorkerUrl();
+    const worker = new Worker(workerUrl, { type: 'module' });
 
     // Configure with custom decoder options
     if (this.options.decoderOptions) {

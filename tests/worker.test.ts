@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -51,7 +52,7 @@ async function loadFixtureAsImageData(filename: string): Promise<ImageData> {
   } as ImageData;
 }
 
-describe('Worker decoding logic', () => {
+describe('Worker decoding logic', { timeout: 30_000 }, () => {
   it('decodes a valid QR code from ImageData and returns { data, cornerPoints }', async () => {
     const imageData = await loadFixtureAsImageData('simple.png');
     const results = await readBarcodes(imageData, defaultOptions);

@@ -1,4 +1,4 @@
-import { Scanner } from './scanner.js';
+import { Scanner, setWorkerUrl } from './scanner.js';
 import { CameraManager } from './camera.js';
 import { scanImage } from './scan-image.js';
 import { setZXingModuleOverrides } from 'zxing-wasm/reader';
@@ -128,6 +128,18 @@ class QrScanner {
    */
   static configureWasm(overrides: Partial<EmscriptenModule>): void {
     setZXingModuleOverrides(overrides);
+  }
+
+  /**
+   * Set a custom URL for the worker script. Call before creating any scanner.
+   * Needed for CJS consumers or non-standard bundler setups.
+   * By default, the worker URL is resolved via `new URL('./worker.js', import.meta.url)`,
+   * which works with Vite, webpack 5, Parcel, and other modern bundlers.
+   * @example
+   * QrScanner.setWorkerUrl('/assets/qr-scanner-worker.js');
+   */
+  static setWorkerUrl(url: string | URL): void {
+    setWorkerUrl(url);
   }
 
   /** Scan a single image (not a video stream). */

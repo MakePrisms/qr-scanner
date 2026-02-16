@@ -93,6 +93,17 @@ QrScanner.listCameras(requestLabels?): Promise<Camera[]>
 QrScanner.scanImage(source, options?): Promise<ScanResult>
 QrScanner.preload(): Promise<void>
 QrScanner.configureWasm(overrides): void
+QrScanner.setWorkerUrl(url): void
+```
+
+## Worker Loading
+
+The library uses a Web Worker for off-thread QR decoding. The worker script (`dist/worker.js`) is resolved automatically by modern bundlers (Vite, webpack 5, Parcel) via `new URL('./worker.js', import.meta.url)`.
+
+For CJS consumers or non-standard setups, set the worker URL manually:
+
+```ts
+QrScanner.setWorkerUrl('/assets/wasm-qr-scanner/dist/worker.js');
 ```
 
 ## WASM Loading
