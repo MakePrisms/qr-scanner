@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-wasm-qr-scanner is a high-performance web QR code scanner powered by ZXing-C++ WebAssembly. It's a drop-in replacement for nimiq/qr-scanner that feeds full-resolution frames (720-1080px+) to a WASM decoder running in a Web Worker, keeping the UI at 60fps.
+@agicash/qr-scanner is a high-performance web QR code scanner powered by ZXing-C++ WebAssembly. It's a drop-in replacement for nimiq/qr-scanner that feeds full-resolution frames (720-1080px+) to a WASM decoder running in a Web Worker, keeping the UI at 60fps.
 
 ## Commands
 

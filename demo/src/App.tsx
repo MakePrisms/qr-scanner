@@ -3,7 +3,7 @@ import LiveScanner from './LiveScanner';
 import ImageScanner from './ImageScanner';
 import TestQRCodes from './TestQRCodes';
 import ResultDisplay from './ResultDisplay';
-import type { ScanResult } from 'wasm-qr-scanner';
+import type { ScanResult } from '@agicash/qr-scanner';
 
 type Tab = 'live' | 'image' | 'generate';
 
@@ -19,7 +19,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 800, margin: '0 auto', padding: 16 }}>
-      <h1 style={{ fontSize: 24, marginBottom: 8 }}>wasm-qr-scanner Demo</h1>
+      <h1 style={{ fontSize: 24, marginBottom: 8 }}>@agicash/qr-scanner Demo</h1>
       <p style={{ color: '#666', marginBottom: 16 }}>
         High-performance QR code scanner powered by ZXing-C++ WebAssembly
       </p>

@@ -1,5 +1,5 @@
 {
-  "name": "wasm-qr-scanner",
+  "name": "@agicash/qr-scanner",
   "version": "0.1.0",
   "description": "High-performance QR code scanner for the web, powered by ZXing-C++ WebAssembly",
   "type": "module",

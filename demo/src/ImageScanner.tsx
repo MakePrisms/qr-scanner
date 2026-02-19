@@ -1,6 +1,6 @@
 import { useCallback, useState, useRef } from 'react';
-import QrScanner from 'wasm-qr-scanner';
-import type { ScanResult } from 'wasm-qr-scanner';
+import QrScanner from '@agicash/qr-scanner';
+import type { ScanResult } from '@agicash/qr-scanner';
 
 interface Props {
   onResult: (result: ScanResult) => void;

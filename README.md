@@ -1,4 +1,4 @@
-# wasm-qr-scanner
+# @agicash/qr-scanner
 
 High-performance QR code scanner for the web, powered by ZXing-C++ WebAssembly. Drop-in replacement for [nimiq/qr-scanner](https://github.com/nimiq/qr-scanner) with significantly better decoding of dense QR codes.
 
@@ -12,9 +12,9 @@ High-performance QR code scanner for the web, powered by ZXing-C++ WebAssembly. 
 ## Installation
 
 ```bash
-bun add wasm-qr-scanner
+bun add @agicash/qr-scanner
 # or
-npm install wasm-qr-scanner
+npm install @agicash/qr-scanner
 ```
 
 ## Quick Start
@@ -22,7 +22,7 @@ npm install wasm-qr-scanner
 ### Live Camera Scanner
 
 ```ts
-import QrScanner from 'wasm-qr-scanner';
+import QrScanner from '@agicash/qr-scanner';
 
 const scanner = new QrScanner(videoElement, (result) => {
   console.log(result.data);          // decoded string
@@ -41,7 +41,7 @@ scanner.destroy();
 ### Scan a Single Image
 
 ```ts
-import QrScanner from 'wasm-qr-scanner';
+import QrScanner from '@agicash/qr-scanner';
 
 const result = await QrScanner.scanImage(fileOrBlobOrUrl);
 console.log(result.data);
@@ -103,7 +103,7 @@ The library uses a Web Worker for off-thread QR decoding. The worker script (`di
 For CJS consumers or non-standard setups, set the worker URL manually:
 
 ```ts
-QrScanner.setWorkerUrl('/assets/wasm-qr-scanner/dist/worker.js');
+QrScanner.setWorkerUrl('/assets/@agicash/qr-scanner/dist/worker.js');
 ```
 
 ## WASM Loading
@@ -118,7 +118,7 @@ QrScanner.configureWasm({
 
 ## Migration from qr-scanner
 
-| qr-scanner | wasm-qr-scanner |
+| qr-scanner | @agicash/qr-scanner |
 |------------|-----------------|
 | `returnDetailedScanResult: true` | Always returns `ScanResult` |
 | `ScanRegion.downScaledWidth/Height` | Removed - no downscaling |

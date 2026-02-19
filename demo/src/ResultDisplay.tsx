@@ -1,4 +1,4 @@
-import type { ScanResult } from 'wasm-qr-scanner';
+import type { ScanResult } from '@agicash/qr-scanner';
 
 interface Props {
   result: ScanResult;

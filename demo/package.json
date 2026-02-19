@@ -1,5 +1,5 @@
 {
-  "name": "wasm-qr-scanner-demo",
+  "name": "@agicash/qr-scanner-demo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,7 +12,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "qrcode.react": "^4.0.0",
-    "wasm-qr-scanner": "file:.."
+    "@agicash/qr-scanner": "file:.."
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

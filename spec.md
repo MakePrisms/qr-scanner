@@ -1,4 +1,4 @@
-# Spec: wasm-qr-scanner
+# Spec: @agicash/qr-scanner
 
 A high-performance QR code scanner for the web, powered by ZXing-C++ WebAssembly. Drop-in replacement for [nimiq/qr-scanner](https://github.com/nimiq/qr-scanner) with significantly better decoding of dense QR codes.
 
@@ -15,7 +15,7 @@ This library closes that gap by:
 
 ## Package details
 
-- **Name:** `wasm-qr-scanner` (or whatever is available on npm)
+- **Name:** `@agicash/qr-scanner` (or whatever is available on npm)
 - **Language:** TypeScript
 - **Module format:** ESM and CJS
 - **Target:** Modern browsers (Chrome 80+, Safari 16+, Firefox 80+, Edge 80+)
@@ -31,7 +31,7 @@ The API mirrors [nimiq/qr-scanner](https://github.com/nimiq/qr-scanner) where it
 ### Constructor and core lifecycle
 
 ```ts
-import QrScanner from 'wasm-qr-scanner';
+import QrScanner from '@agicash/qr-scanner';
 
 const scanner = new QrScanner(videoElement, (result) => {
   console.log(result.data);          // decoded string
@@ -228,7 +228,7 @@ class QrScanner {
 
 ### API differences from qr-scanner
 
-| Feature | qr-scanner (nimiq) | wasm-qr-scanner |
+| Feature | qr-scanner (nimiq) | @agicash/qr-scanner |
 |---------|-------------------|-----------------|
 | Decoder | JS worker + BarcodeDetector API | zxing-wasm (WASM) in Web Worker |
 | Frame resolution | Downscaled to 400×400 | Full scan region resolution |
@@ -369,7 +369,7 @@ The `zxing-wasm` reader WASM binary (~919 KB) is loaded asynchronously on first 
 | | JS (gzipped) | Async WASM | Total |
 |---|---|---|---|
 | **qr-scanner** (current) | ~16 KB | ~55 KB worker | ~71 KB |
-| **wasm-qr-scanner** | ~5-8 KB | ~919 KB WASM | ~925 KB |
+| **@agicash/qr-scanner** | ~5-8 KB | ~919 KB WASM | ~925 KB |
 
 The WASM binary is loaded **asynchronously on first scanner use**, not in the main bundle. Initial page load is unaffected. The binary is cacheable with long TTL — only downloaded once per user.
 
@@ -413,7 +413,7 @@ bun run typecheck        # Type check (tsc --noEmit)
 ## Project structure
 
 ```
-wasm-qr-scanner/
+@agicash/qr-scanner/
 ├── src/
 │   ├── index.ts                 # Main entry point, QrScanner class
 │   ├── scanner.ts               # Core scanner logic (camera, frame loop, lifecycle)
@@ -550,7 +550,7 @@ demo/
 │   ├── TestQRCodes.tsx      # Generates QR codes at v1, v10, v25, v40 densities
 │   └── ResultDisplay.tsx    # Shows scan result details
 ├── index.html
-├── package.json             # Dependencies: react, react-dom, wasm-qr-scanner, qrcode.react (managed with bun)
+├── package.json             # Dependencies: react, react-dom, @agicash/qr-scanner, qrcode.react (managed with bun)
 ├── tsconfig.json
 └── vite.config.ts
 ```
@@ -619,7 +619,7 @@ Add the scan region indicator and code outline highlighting.
 1. Create `src/overlay.ts` — generates the overlay DOM (dark mask with cutout, corner markers, code outline SVG)
 2. Integrate overlay into `scanner.ts` — create/position/update on scan, remove on destroy
 3. Support `highlightScanRegion`, `highlightCodeOutline`, and custom `overlay` options
-4. Add CSS that can be imported by consumers (`wasm-qr-scanner/style.css` or injected automatically)
+4. Add CSS that can be imported by consumers (`@agicash/qr-scanner/style.css` or injected automatically)
 
 **Done when:** Scanner shows a visual scan region and highlights detected QR codes.
 
@@ -647,4 +647,4 @@ Build the demo React app for testing and showcasing.
 5. Final edge-case testing: tab switching, app backgrounding, permission denied, no camera
 6. Publish to npm
 
-**Done when:** Package is published and installable via `bun add wasm-qr-scanner` (or `npm install wasm-qr-scanner`).
+**Done when:** Package is published and installable via `bun add @agicash/qr-scanner` (or `npm install @agicash/qr-scanner`).

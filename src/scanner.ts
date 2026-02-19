@@ -37,9 +37,9 @@ function resolveWorkerUrl(): string | URL {
     return new URL('./worker.js', import.meta.url);
   } catch {
     throw new Error(
-      'wasm-qr-scanner: Could not resolve worker URL. ' +
+      '@agicash/qr-scanner: Could not resolve worker URL. ' +
       'Call QrScanner.setWorkerUrl() with the path to the worker script before creating a scanner. ' +
-      'Example: QrScanner.setWorkerUrl("/path/to/wasm-qr-scanner/dist/worker.js")',
+      'Example: QrScanner.setWorkerUrl("/path/to/@agicash/qr-scanner/dist/worker.js")',
     );
   }
 }
