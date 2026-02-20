@@ -289,6 +289,42 @@ var FrameExtractor = class {
 };
 
 // src/overlay.ts
+function getRenderedVideoRect(video) {
+  const elementWidth = video.clientWidth;
+  const elementHeight = video.clientHeight;
+  const videoWidth = video.videoWidth || 1;
+  const videoHeight = video.videoHeight || 1;
+  const objectFit = getComputedStyle(video).objectFit;
+  if (objectFit === "cover") {
+    const scale = Math.max(
+      elementWidth / videoWidth,
+      elementHeight / videoHeight
+    );
+    const renderedWidth = videoWidth * scale;
+    const renderedHeight = videoHeight * scale;
+    return {
+      offsetX: (elementWidth - renderedWidth) / 2,
+      offsetY: (elementHeight - renderedHeight) / 2,
+      width: renderedWidth,
+      height: renderedHeight
+    };
+  }
+  if (objectFit === "contain") {
+    const scale = Math.min(
+      elementWidth / videoWidth,
+      elementHeight / videoHeight
+    );
+    const renderedWidth = videoWidth * scale;
+    const renderedHeight = videoHeight * scale;
+    return {
+      offsetX: (elementWidth - renderedWidth) / 2,
+      offsetY: (elementHeight - renderedHeight) / 2,
+      width: renderedWidth,
+      height: renderedHeight
+    };
+  }
+  return { offsetX: 0, offsetY: 0, width: elementWidth, height: elementHeight };
+}
 var ScanOverlay = class {
   constructor(video, config) {
     this.overlayEl = null;
@@ -331,10 +367,12 @@ var ScanOverlay = class {
     if (!polygon) return;
     const regionX = scanRegion?.x ?? 0;
     const regionY = scanRegion?.y ?? 0;
-    const videoRect = this.video.getBoundingClientRect();
-    const scaleX = videoRect.width / this.video.videoWidth;
-    const scaleY = videoRect.height / this.video.videoHeight;
-    const points = cornerPoints.map((p) => `${(p.x + regionX) * scaleX},${(p.y + regionY) * scaleY}`).join(" ");
+    const rendered = getRenderedVideoRect(this.video);
+    const scaleX = rendered.width / this.video.videoWidth;
+    const scaleY = rendered.height / this.video.videoHeight;
+    const points = cornerPoints.map(
+      (p) => `${(p.x + regionX) * scaleX + rendered.offsetX},${(p.y + regionY) * scaleY + rendered.offsetY}`
+    ).join(" ");
     polygon.setAttribute("points", points);
   }
   destroy() {
@@ -390,12 +428,18 @@ var ScanOverlay = class {
       zIndex: "11",
       display: "none"
     });
-    const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    const polygon = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "polygon"
+    );
     polygon.setAttribute("fill", "none");
     polygon.setAttribute("stroke", "#00ff00");
     polygon.setAttribute("stroke-width", "3");
     polygon.setAttribute("stroke-linejoin", "round");
-    const animate = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+    const animate = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "animate"
+    );
     animate.setAttribute("attributeName", "stroke-opacity");
     animate.setAttribute("values", "1;0.5;1");
     animate.setAttribute("dur", "1.5s");
@@ -419,13 +463,13 @@ var ScanOverlay = class {
   }
   positionOverlayToRegion(region) {
     if (!this.overlayEl) return;
-    const videoRect = this.video.getBoundingClientRect();
     const videoWidth = this.video.videoWidth || 1;
     const videoHeight = this.video.videoHeight || 1;
-    const scaleX = videoRect.width / videoWidth;
-    const scaleY = videoRect.height / videoHeight;
-    const x = (region.x ?? 0) * scaleX;
-    const y = (region.y ?? 0) * scaleY;
+    const rendered = getRenderedVideoRect(this.video);
+    const scaleX = rendered.width / videoWidth;
+    const scaleY = rendered.height / videoHeight;
+    const x = (region.x ?? 0) * scaleX + rendered.offsetX;
+    const y = (region.y ?? 0) * scaleY + rendered.offsetY;
     const w = (region.width ?? videoWidth) * scaleX;
     const h = (region.height ?? videoHeight) * scaleY;
     Object.assign(this.overlayEl.style, {

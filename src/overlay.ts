@@ -1,5 +1,63 @@
 import type { ScanRegion, Point } from './types.js';
 
+/**
+ * Compute the actual rendered position and size of the video content
+ * within the element, accounting for object-fit: cover.
+ *
+ * With object-fit: cover the video is scaled up to fill the element and
+ * cropped. The rendered content is larger than the element, centered,
+ * with negative offsets for the cropped portions.
+ *
+ * When object-fit is the default (fill), the rendered size equals the
+ * element size and offsets are zero — so this is backwards-compatible.
+ */
+function getRenderedVideoRect(video: HTMLVideoElement): {
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
+} {
+  const elementWidth = video.clientWidth;
+  const elementHeight = video.clientHeight;
+  const videoWidth = video.videoWidth || 1;
+  const videoHeight = video.videoHeight || 1;
+
+  const objectFit = getComputedStyle(video).objectFit;
+
+  if (objectFit === 'cover') {
+    const scale = Math.max(
+      elementWidth / videoWidth,
+      elementHeight / videoHeight,
+    );
+    const renderedWidth = videoWidth * scale;
+    const renderedHeight = videoHeight * scale;
+    return {
+      offsetX: (elementWidth - renderedWidth) / 2,
+      offsetY: (elementHeight - renderedHeight) / 2,
+      width: renderedWidth,
+      height: renderedHeight,
+    };
+  }
+
+  if (objectFit === 'contain') {
+    const scale = Math.min(
+      elementWidth / videoWidth,
+      elementHeight / videoHeight,
+    );
+    const renderedWidth = videoWidth * scale;
+    const renderedHeight = videoHeight * scale;
+    return {
+      offsetX: (elementWidth - renderedWidth) / 2,
+      offsetY: (elementHeight - renderedHeight) / 2,
+      width: renderedWidth,
+      height: renderedHeight,
+    };
+  }
+
+  // Default (fill / none / scale-down with no scaling needed): element dimensions
+  return { offsetX: 0, offsetY: 0, width: elementWidth, height: elementHeight };
+}
+
 export interface OverlayConfig {
   highlightScanRegion: boolean;
   highlightCodeOutline: boolean;
@@ -13,10 +71,7 @@ export class ScanOverlay {
   private config: OverlayConfig;
   private video: HTMLVideoElement;
 
-  constructor(
-    video: HTMLVideoElement,
-    config: OverlayConfig,
-  ) {
+  constructor(video: HTMLVideoElement, config: OverlayConfig) {
     this.video = video;
     this.config = config;
 
@@ -24,7 +79,7 @@ export class ScanOverlay {
     if (!parent) {
       throw new Error(
         'QrScanner: video element must have a parent element. ' +
-        'The parent should have position: relative.',
+          'The parent should have position: relative.',
       );
     }
     this.container = parent;
@@ -51,7 +106,10 @@ export class ScanOverlay {
     this.positionOverlayToRegion(region);
   }
 
-  updateCodeOutline(cornerPoints: Point[] | null, scanRegion?: ScanRegion): void {
+  updateCodeOutline(
+    cornerPoints: Point[] | null,
+    scanRegion?: ScanRegion,
+  ): void {
     if (!this.codeOutlineEl) return;
 
     if (!cornerPoints || cornerPoints.length < 4) {
@@ -66,15 +124,18 @@ export class ScanOverlay {
 
     // Corner points are relative to the cropped scan region.
     // Add the scan region offset to get full video coordinates,
-    // then scale to display coordinates.
+    // then scale to display coordinates (accounting for object-fit).
     const regionX = scanRegion?.x ?? 0;
     const regionY = scanRegion?.y ?? 0;
-    const videoRect = this.video.getBoundingClientRect();
-    const scaleX = videoRect.width / this.video.videoWidth;
-    const scaleY = videoRect.height / this.video.videoHeight;
+    const rendered = getRenderedVideoRect(this.video);
+    const scaleX = rendered.width / this.video.videoWidth;
+    const scaleY = rendered.height / this.video.videoHeight;
 
     const points = cornerPoints
-      .map((p) => `${(p.x + regionX) * scaleX},${(p.y + regionY) * scaleY}`)
+      .map(
+        (p) =>
+          `${(p.x + regionX) * scaleX + rendered.offsetX},${(p.y + regionY) * scaleY + rendered.offsetY}`,
+      )
       .join(' ');
 
     polygon.setAttribute('points', points);
@@ -144,14 +205,20 @@ export class ScanOverlay {
       display: 'none',
     });
 
-    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    const polygon = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'polygon',
+    );
     polygon.setAttribute('fill', 'none');
     polygon.setAttribute('stroke', '#00ff00');
     polygon.setAttribute('stroke-width', '3');
     polygon.setAttribute('stroke-linejoin', 'round');
 
     // Animated stroke
-    const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+    const animate = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'animate',
+    );
     animate.setAttribute('attributeName', 'stroke-opacity');
     animate.setAttribute('values', '1;0.5;1');
     animate.setAttribute('dur', '1.5s');
@@ -180,14 +247,14 @@ export class ScanOverlay {
   private positionOverlayToRegion(region: ScanRegion): void {
     if (!this.overlayEl) return;
 
-    const videoRect = this.video.getBoundingClientRect();
     const videoWidth = this.video.videoWidth || 1;
     const videoHeight = this.video.videoHeight || 1;
-    const scaleX = videoRect.width / videoWidth;
-    const scaleY = videoRect.height / videoHeight;
+    const rendered = getRenderedVideoRect(this.video);
+    const scaleX = rendered.width / videoWidth;
+    const scaleY = rendered.height / videoHeight;
 
-    const x = (region.x ?? 0) * scaleX;
-    const y = (region.y ?? 0) * scaleY;
+    const x = (region.x ?? 0) * scaleX + rendered.offsetX;
+    const y = (region.y ?? 0) * scaleY + rendered.offsetY;
     const w = (region.width ?? videoWidth) * scaleX;
     const h = (region.height ?? videoHeight) * scaleY;
 
