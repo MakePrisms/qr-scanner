@@ -25,6 +25,20 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 
 // src/camera.ts
+var CACHE_KEY_PREFIX = "@agicash/qr-scanner:camera:";
+function getCachedDeviceId(facingMode) {
+  try {
+    return localStorage.getItem(`${CACHE_KEY_PREFIX}${facingMode}`);
+  } catch {
+    return null;
+  }
+}
+function setCachedDeviceId(facingMode, deviceId) {
+  try {
+    localStorage.setItem(`${CACHE_KEY_PREFIX}${facingMode}`, deviceId);
+  } catch {
+  }
+}
 var CameraManager = class {
   constructor(config = {}) {
     this.stream = null;
@@ -48,6 +62,12 @@ var CameraManager = class {
     const t3 = performance.now();
     console.debug(`[QrScanner] video.play: ${(t3 - t2).toFixed(0)}ms`);
     console.debug(`[QrScanner] camera.start total: ${(t3 - t0).toFixed(0)}ms`);
+    if (this.facingMode === "environment" || this.facingMode === "user") {
+      const finalDeviceId = this.getVideoTrack()?.getSettings().deviceId;
+      if (finalDeviceId) {
+        setCachedDeviceId(this.facingMode, finalDeviceId);
+      }
+    }
     return this.stream;
   }
   stop() {
@@ -223,15 +243,31 @@ var CameraManager = class {
    * fewer constraints lets us still open the camera on those browsers.
    */
   async acquireStream() {
-    const labels = ["full constraints", "no resolution", "bare minimum"];
-    const attempts = [
-      // 1. Full constraints (facingMode/deviceId + resolution)
+    const labels = [];
+    const attempts = [];
+    if (this.facingMode === "environment" || this.facingMode === "user") {
+      const cachedId = getCachedDeviceId(this.facingMode);
+      if (cachedId) {
+        labels.push("cached deviceId");
+        const video = {
+          deviceId: { exact: cachedId }
+        };
+        if (this.resolution?.width) video.width = this.resolution.width;
+        else video.width = { ideal: 1920 };
+        if (this.resolution?.height) video.height = this.resolution.height;
+        else video.height = { ideal: 1080 };
+        attempts.push({ video, audio: false });
+      }
+    }
+    labels.push("full constraints", "no resolution", "bare minimum");
+    attempts.push(
+      // facingMode/deviceId + resolution
       this.buildConstraints(),
-      // 2. facingMode/deviceId only, no resolution
+      // facingMode/deviceId only, no resolution
       this.buildConstraints(false),
-      // 3. Bare minimum
+      // Bare minimum
       { video: true, audio: false }
-    ];
+    );
     let lastError;
     for (let i = 0; i < attempts.length; i++) {
       const t = performance.now();
