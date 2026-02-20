@@ -156,8 +156,16 @@ export class ScanOverlay {
     this.overlayEl = document.createElement('div');
     this.overlayEl.className = 'qr-scanner-region';
 
+    // Start with CSS centering so the overlay is visible immediately,
+    // before video dimensions are available. positionOverlayToRegion()
+    // will override with exact pixel values once the camera starts.
     Object.assign(this.overlayEl.style, {
       position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: '66.67%',
+      aspectRatio: '1',
       border: '2px solid rgba(255, 255, 255, 0.5)',
       borderRadius: '8px',
       boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
@@ -258,7 +266,10 @@ export class ScanOverlay {
     const w = (region.width ?? videoWidth) * scaleX;
     const h = (region.height ?? videoHeight) * scaleY;
 
+    // Clear CSS centering from initial placeholder positioning
     Object.assign(this.overlayEl.style, {
+      transform: 'none',
+      aspectRatio: '',
       left: `${x}px`,
       top: `${y}px`,
       width: `${w}px`,

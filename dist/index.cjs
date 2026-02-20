@@ -512,6 +512,11 @@ var ScanOverlay = class {
     this.overlayEl.className = "qr-scanner-region";
     Object.assign(this.overlayEl.style, {
       position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      width: "66.67%",
+      aspectRatio: "1",
       border: "2px solid rgba(255, 255, 255, 0.5)",
       borderRadius: "8px",
       boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.5)",
@@ -595,6 +600,8 @@ var ScanOverlay = class {
     const w = (region.width ?? videoWidth) * scaleX;
     const h = (region.height ?? videoHeight) * scaleY;
     Object.assign(this.overlayEl.style, {
+      transform: "none",
+      aspectRatio: "",
       left: `${x}px`,
       top: `${y}px`,
       width: `${w}px`,
@@ -659,10 +666,24 @@ var Scanner = class {
       return;
     }
     const t0 = performance.now();
+    if (!this.overlay && (this.options.highlightScanRegion || this.options.highlightCodeOutline || this.options.overlay)) {
+      try {
+        this.overlay = new ScanOverlay(this.video, {
+          highlightScanRegion: this.options.highlightScanRegion ?? false,
+          highlightCodeOutline: this.options.highlightCodeOutline ?? false,
+          customOverlay: this.options.overlay
+        });
+        this.overlay.setup();
+      } catch {
+      }
+    }
     await this.camera.start(this.video);
     console.debug(
       `[QrScanner] start: camera ready ${(performance.now() - t0).toFixed(0)}ms`
     );
+    if (this.overlay) {
+      this.overlay.updateScanRegion(this.getCurrentScanRegion());
+    }
     if (!this.worker) {
       const tw = performance.now();
       this.worker = this.createWorker();
@@ -675,18 +696,6 @@ var Scanner = class {
         maxScansPerSecond: this.options.maxScansPerSecond ?? 15,
         getScanRegion: () => this.getCurrentScanRegion()
       });
-    }
-    if (!this.overlay && (this.options.highlightScanRegion || this.options.highlightCodeOutline || this.options.overlay)) {
-      try {
-        this.overlay = new ScanOverlay(this.video, {
-          highlightScanRegion: this.options.highlightScanRegion ?? false,
-          highlightCodeOutline: this.options.highlightCodeOutline ?? false,
-          customOverlay: this.options.overlay
-        });
-        this.overlay.setup();
-        this.overlay.updateScanRegion(this.getCurrentScanRegion());
-      } catch {
-      }
     }
     this.frameExtractor.start((imageData) => {
       this.sendToWorker(imageData);

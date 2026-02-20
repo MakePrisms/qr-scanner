@@ -82,11 +82,36 @@ export class Scanner {
 
     const t0 = performance.now();
 
+    // Show overlay immediately (CSS-centered placeholder) so the UI looks
+    // ready while the camera is still loading.
+    if (
+      !this.overlay &&
+      (this.options.highlightScanRegion ||
+        this.options.highlightCodeOutline ||
+        this.options.overlay)
+    ) {
+      try {
+        this.overlay = new ScanOverlay(this.video, {
+          highlightScanRegion: this.options.highlightScanRegion ?? false,
+          highlightCodeOutline: this.options.highlightCodeOutline ?? false,
+          customOverlay: this.options.overlay,
+        });
+        this.overlay.setup();
+      } catch {
+        // Overlay setup failed (e.g., no parent element) — continue without overlay
+      }
+    }
+
     // Start camera
     await this.camera.start(this.video);
     console.debug(
       `[QrScanner] start: camera ready ${(performance.now() - t0).toFixed(0)}ms`,
     );
+
+    // Now that video dimensions are known, position overlay exactly
+    if (this.overlay) {
+      this.overlay.updateScanRegion(this.getCurrentScanRegion());
+    }
 
     // Create worker if needed
     if (!this.worker) {
@@ -103,26 +128,6 @@ export class Scanner {
         maxScansPerSecond: this.options.maxScansPerSecond ?? 15,
         getScanRegion: () => this.getCurrentScanRegion(),
       });
-    }
-
-    // Set up overlay if needed
-    if (
-      !this.overlay &&
-      (this.options.highlightScanRegion ||
-        this.options.highlightCodeOutline ||
-        this.options.overlay)
-    ) {
-      try {
-        this.overlay = new ScanOverlay(this.video, {
-          highlightScanRegion: this.options.highlightScanRegion ?? false,
-          highlightCodeOutline: this.options.highlightCodeOutline ?? false,
-          customOverlay: this.options.overlay,
-        });
-        this.overlay.setup();
-        this.overlay.updateScanRegion(this.getCurrentScanRegion());
-      } catch {
-        // Overlay setup failed (e.g., no parent element) — continue without overlay
-      }
     }
 
     // Start frame extraction loop
