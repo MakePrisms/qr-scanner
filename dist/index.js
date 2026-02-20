@@ -9,24 +9,7 @@ var CameraManager = class {
     if (this.stream) {
       return this.stream;
     }
-    const constraints = this.buildConstraints();
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (err) {
-      if (err instanceof DOMException) {
-        if (err.name === "NotAllowedError") {
-          throw new Error(
-            "Camera access denied. Please grant camera permission and try again."
-          );
-        }
-        if (err.name === "NotFoundError") {
-          throw new Error(
-            "No camera found. Please connect a camera and try again."
-          );
-        }
-      }
-      throw err;
-    }
+    this.stream = await this.acquireStream();
     await this.ensureBestCamera();
     video.srcObject = this.stream;
     video.setAttribute("playsinline", "true");
@@ -181,11 +164,52 @@ var CameraManager = class {
     const tracks = this.stream.getVideoTracks();
     return tracks[0] ?? null;
   }
-  buildConstraints() {
-    const video = {
-      width: this.resolution?.width ?? { ideal: 1920 },
-      height: this.resolution?.height ?? { ideal: 1080 }
-    };
+  /**
+   * Try getUserMedia with progressively simpler constraints.
+   *
+   * Some browsers (e.g. Brave on Samsung Galaxy S24) throw NotReadableError
+   * when facingMode and resolution constraints are combined. Falling back to
+   * fewer constraints lets us still open the camera on those browsers.
+   */
+  async acquireStream() {
+    const attempts = [
+      // 1. Full constraints (facingMode/deviceId + resolution)
+      this.buildConstraints(),
+      // 2. facingMode/deviceId only, no resolution
+      this.buildConstraints(false),
+      // 3. Bare minimum
+      { video: true, audio: false }
+    ];
+    let lastError;
+    for (const constraints of attempts) {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        if (err instanceof DOMException) {
+          if (err.name === "NotAllowedError") {
+            throw new Error(
+              "Camera access denied. Please grant camera permission and try again."
+            );
+          }
+          if (err.name === "NotFoundError") {
+            throw new Error(
+              "No camera found. Please connect a camera and try again."
+            );
+          }
+          lastError = err;
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastError;
+  }
+  buildConstraints(includeResolution = true) {
+    const video = {};
+    if (includeResolution) {
+      video.width = this.resolution?.width ?? { ideal: 1920 };
+      video.height = this.resolution?.height ?? { ideal: 1080 };
+    }
     if (this.facingMode === "environment" || this.facingMode === "user") {
       video.facingMode = this.facingMode;
     } else {
@@ -204,7 +228,9 @@ var CameraManager = class {
   static async listCameras(requestLabels = false) {
     if (requestLabels) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true
+        });
         for (const track of stream.getTracks()) {
           track.stop();
         }

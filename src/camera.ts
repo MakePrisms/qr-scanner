@@ -23,25 +23,7 @@ export class CameraManager {
       return this.stream;
     }
 
-    const constraints = this.buildConstraints();
-
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (err) {
-      if (err instanceof DOMException) {
-        if (err.name === 'NotAllowedError') {
-          throw new Error(
-            'Camera access denied. Please grant camera permission and try again.',
-          );
-        }
-        if (err.name === 'NotFoundError') {
-          throw new Error(
-            'No camera found. Please connect a camera and try again.',
-          );
-        }
-      }
-      throw err;
-    }
+    this.stream = await this.acquireStream();
 
     // On some devices (e.g. Samsung S24 + Brave), facingMode: 'environment'
     // picks an ultrawide camera that lacks autofocus. Check and switch to a
@@ -199,19 +181,24 @@ export class CameraManager {
       }
 
       // Must match the desired facing mode
-      const candidateSettings = candidateTrack.getSettings() as MediaTrackSettings & {
-        facingMode?: string;
-      };
-      if (candidateSettings.facingMode && candidateSettings.facingMode !== this.facingMode) {
+      const candidateSettings =
+        candidateTrack.getSettings() as MediaTrackSettings & {
+          facingMode?: string;
+        };
+      if (
+        candidateSettings.facingMode &&
+        candidateSettings.facingMode !== this.facingMode
+      ) {
         for (const t of candidateStream.getTracks()) t.stop();
         continue;
       }
 
       // Check if this camera supports continuous autofocus
       try {
-        const candidateCaps = candidateTrack.getCapabilities() as MediaTrackCapabilities & {
-          focusMode?: string[];
-        };
+        const candidateCaps =
+          candidateTrack.getCapabilities() as MediaTrackCapabilities & {
+            focusMode?: string[];
+          };
         if (candidateCaps.focusMode?.includes('continuous')) {
           this.stream = candidateStream;
           return;
@@ -250,11 +237,57 @@ export class CameraManager {
     return tracks[0] ?? null;
   }
 
-  private buildConstraints(): MediaStreamConstraints {
-    const video: MediaTrackConstraints = {
-      width: this.resolution?.width ?? { ideal: 1920 },
-      height: this.resolution?.height ?? { ideal: 1080 },
-    };
+  /**
+   * Try getUserMedia with progressively simpler constraints.
+   *
+   * Some browsers (e.g. Brave on Samsung Galaxy S24) throw NotReadableError
+   * when facingMode and resolution constraints are combined. Falling back to
+   * fewer constraints lets us still open the camera on those browsers.
+   */
+  private async acquireStream(): Promise<MediaStream> {
+    const attempts: MediaStreamConstraints[] = [
+      // 1. Full constraints (facingMode/deviceId + resolution)
+      this.buildConstraints(),
+      // 2. facingMode/deviceId only, no resolution
+      this.buildConstraints(false),
+      // 3. Bare minimum
+      { video: true, audio: false },
+    ];
+
+    let lastError: unknown;
+    for (const constraints of attempts) {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        if (err instanceof DOMException) {
+          if (err.name === 'NotAllowedError') {
+            throw new Error(
+              'Camera access denied. Please grant camera permission and try again.',
+            );
+          }
+          if (err.name === 'NotFoundError') {
+            throw new Error(
+              'No camera found. Please connect a camera and try again.',
+            );
+          }
+          // NotReadableError or OverconstrainedError — try next fallback
+          lastError = err;
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw lastError;
+  }
+
+  private buildConstraints(includeResolution = true): MediaStreamConstraints {
+    const video: MediaTrackConstraints = {};
+
+    if (includeResolution) {
+      video.width = this.resolution?.width ?? { ideal: 1920 };
+      video.height = this.resolution?.height ?? { ideal: 1080 };
+    }
 
     if (this.facingMode === 'environment' || this.facingMode === 'user') {
       video.facingMode = this.facingMode;
@@ -278,7 +311,9 @@ export class CameraManager {
     if (requestLabels) {
       // Requesting labels requires a temporary stream to trigger the permission prompt
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
         for (const track of stream.getTracks()) {
           track.stop();
         }
