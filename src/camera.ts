@@ -23,16 +23,25 @@ export class CameraManager {
       return this.stream;
     }
 
+    const t0 = performance.now();
+
     this.stream = await this.acquireStream();
+    const t1 = performance.now();
+    console.debug(`[QrScanner] acquireStream: ${(t1 - t0).toFixed(0)}ms`);
 
     // On some devices (e.g. Samsung S24 + Brave), facingMode: 'environment'
     // picks an ultrawide camera that lacks autofocus. Check and switch to a
     // better camera BEFORE showing on screen to avoid visible flicker.
     await this.ensureBestCamera();
+    const t2 = performance.now();
+    console.debug(`[QrScanner] ensureBestCamera: ${(t2 - t1).toFixed(0)}ms`);
 
     video.srcObject = this.stream;
     video.setAttribute('playsinline', 'true');
     await video.play();
+    const t3 = performance.now();
+    console.debug(`[QrScanner] video.play: ${(t3 - t2).toFixed(0)}ms`);
+    console.debug(`[QrScanner] camera.start total: ${(t3 - t0).toFixed(0)}ms`);
 
     return this.stream;
   }
@@ -122,6 +131,9 @@ export class CameraManager {
    */
   private async ensureBestCamera(): Promise<void> {
     if (this.facingMode !== 'environment' && this.facingMode !== 'user') {
+      console.debug(
+        '[QrScanner] ensureBestCamera: skipped (specific deviceId)',
+      );
       return;
     }
 
@@ -133,8 +145,12 @@ export class CameraManager {
         focusMode?: string[];
       };
       if (capabilities.focusMode?.includes('continuous')) {
+        console.debug('[QrScanner] ensureBestCamera: skipped (has autofocus)');
         return; // Current camera already has autofocus
       }
+      console.debug(
+        `[QrScanner] ensureBestCamera: current camera lacks autofocus (focusMode: ${JSON.stringify(capabilities.focusMode)})`,
+      );
     } catch {
       return;
     }
@@ -154,12 +170,16 @@ export class CameraManager {
     const candidates = devices.filter(
       (d) => d.kind === 'videoinput' && d.deviceId !== currentDeviceId,
     );
+    console.debug(
+      `[QrScanner] ensureBestCamera: testing ${candidates.length} candidate camera(s)`,
+    );
     if (candidates.length === 0) return;
 
     // Stop current stream — mobile devices only allow one active camera
     this.stop();
 
     for (const candidate of candidates) {
+      const t = performance.now();
       let candidateStream: MediaStream;
       try {
         candidateStream = await navigator.mediaDevices.getUserMedia({
@@ -170,7 +190,13 @@ export class CameraManager {
           },
           audio: false,
         });
+        console.debug(
+          `[QrScanner] ensureBestCamera: candidate ${candidate.label || candidate.deviceId.slice(0, 8)}: getUserMedia ${(performance.now() - t).toFixed(0)}ms`,
+        );
       } catch {
+        console.debug(
+          `[QrScanner] ensureBestCamera: candidate ${candidate.label || candidate.deviceId.slice(0, 8)}: getUserMedia failed ${(performance.now() - t).toFixed(0)}ms`,
+        );
         continue;
       }
 
@@ -245,6 +271,7 @@ export class CameraManager {
    * fewer constraints lets us still open the camera on those browsers.
    */
   private async acquireStream(): Promise<MediaStream> {
+    const labels = ['full constraints', 'no resolution', 'bare minimum'];
     const attempts: MediaStreamConstraints[] = [
       // 1. Full constraints (facingMode/deviceId + resolution)
       this.buildConstraints(),
@@ -255,10 +282,18 @@ export class CameraManager {
     ];
 
     let lastError: unknown;
-    for (const constraints of attempts) {
+    for (let i = 0; i < attempts.length; i++) {
+      const t = performance.now();
       try {
-        return await navigator.mediaDevices.getUserMedia(constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(attempts[i]);
+        console.debug(
+          `[QrScanner] getUserMedia(${labels[i]}): ${(performance.now() - t).toFixed(0)}ms ✓`,
+        );
+        return stream;
       } catch (err) {
+        console.debug(
+          `[QrScanner] getUserMedia(${labels[i]}): ${(performance.now() - t).toFixed(0)}ms ✗ ${err instanceof DOMException ? err.name : err}`,
+        );
         if (err instanceof DOMException) {
           if (err.name === 'NotAllowedError') {
             throw new Error(

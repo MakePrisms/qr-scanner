@@ -38,8 +38,8 @@ function resolveWorkerUrl(): string | URL {
   } catch {
     throw new Error(
       '@agicash/qr-scanner: Could not resolve worker URL. ' +
-      'Call QrScanner.setWorkerUrl() with the path to the worker script before creating a scanner. ' +
-      'Example: QrScanner.setWorkerUrl("/path/to/@agicash/qr-scanner/dist/worker.js")',
+        'Call QrScanner.setWorkerUrl() with the path to the worker script before creating a scanner. ' +
+        'Example: QrScanner.setWorkerUrl("/path/to/@agicash/qr-scanner/dist/worker.js")',
     );
   }
 }
@@ -80,12 +80,21 @@ export class Scanner {
       return; // Already running
     }
 
+    const t0 = performance.now();
+
     // Start camera
     await this.camera.start(this.video);
+    console.debug(
+      `[QrScanner] start: camera ready ${(performance.now() - t0).toFixed(0)}ms`,
+    );
 
     // Create worker if needed
     if (!this.worker) {
+      const tw = performance.now();
       this.worker = this.createWorker();
+      console.debug(
+        `[QrScanner] start: worker created ${(performance.now() - tw).toFixed(0)}ms`,
+      );
     }
 
     // Create frame extractor if needed
@@ -97,7 +106,12 @@ export class Scanner {
     }
 
     // Set up overlay if needed
-    if (!this.overlay && (this.options.highlightScanRegion || this.options.highlightCodeOutline || this.options.overlay)) {
+    if (
+      !this.overlay &&
+      (this.options.highlightScanRegion ||
+        this.options.highlightCodeOutline ||
+        this.options.overlay)
+    ) {
       try {
         this.overlay = new ScanOverlay(this.video, {
           highlightScanRegion: this.options.highlightScanRegion ?? false,
@@ -118,6 +132,10 @@ export class Scanner {
 
     this.active = true;
     this.paused = false;
+
+    console.debug(
+      `[QrScanner] start: total ${(performance.now() - t0).toFixed(0)}ms`,
+    );
   }
 
   stop(): void {

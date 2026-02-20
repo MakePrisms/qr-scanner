@@ -9,11 +9,19 @@ var CameraManager = class {
     if (this.stream) {
       return this.stream;
     }
+    const t0 = performance.now();
     this.stream = await this.acquireStream();
+    const t1 = performance.now();
+    console.debug(`[QrScanner] acquireStream: ${(t1 - t0).toFixed(0)}ms`);
     await this.ensureBestCamera();
+    const t2 = performance.now();
+    console.debug(`[QrScanner] ensureBestCamera: ${(t2 - t1).toFixed(0)}ms`);
     video.srcObject = this.stream;
     video.setAttribute("playsinline", "true");
     await video.play();
+    const t3 = performance.now();
+    console.debug(`[QrScanner] video.play: ${(t3 - t2).toFixed(0)}ms`);
+    console.debug(`[QrScanner] camera.start total: ${(t3 - t0).toFixed(0)}ms`);
     return this.stream;
   }
   stop() {
@@ -82,6 +90,9 @@ var CameraManager = class {
    */
   async ensureBestCamera() {
     if (this.facingMode !== "environment" && this.facingMode !== "user") {
+      console.debug(
+        "[QrScanner] ensureBestCamera: skipped (specific deviceId)"
+      );
       return;
     }
     const track = this.getVideoTrack();
@@ -89,8 +100,12 @@ var CameraManager = class {
     try {
       const capabilities = track.getCapabilities();
       if (capabilities.focusMode?.includes("continuous")) {
+        console.debug("[QrScanner] ensureBestCamera: skipped (has autofocus)");
         return;
       }
+      console.debug(
+        `[QrScanner] ensureBestCamera: current camera lacks autofocus (focusMode: ${JSON.stringify(capabilities.focusMode)})`
+      );
     } catch {
       return;
     }
@@ -105,9 +120,13 @@ var CameraManager = class {
     const candidates = devices.filter(
       (d) => d.kind === "videoinput" && d.deviceId !== currentDeviceId
     );
+    console.debug(
+      `[QrScanner] ensureBestCamera: testing ${candidates.length} candidate camera(s)`
+    );
     if (candidates.length === 0) return;
     this.stop();
     for (const candidate of candidates) {
+      const t = performance.now();
       let candidateStream;
       try {
         candidateStream = await navigator.mediaDevices.getUserMedia({
@@ -118,17 +137,23 @@ var CameraManager = class {
           },
           audio: false
         });
+        console.debug(
+          `[QrScanner] ensureBestCamera: candidate ${candidate.label || candidate.deviceId.slice(0, 8)}: getUserMedia ${(performance.now() - t).toFixed(0)}ms`
+        );
       } catch {
+        console.debug(
+          `[QrScanner] ensureBestCamera: candidate ${candidate.label || candidate.deviceId.slice(0, 8)}: getUserMedia failed ${(performance.now() - t).toFixed(0)}ms`
+        );
         continue;
       }
       const candidateTrack = candidateStream.getVideoTracks()[0];
       if (!candidateTrack) {
-        for (const t of candidateStream.getTracks()) t.stop();
+        for (const t2 of candidateStream.getTracks()) t2.stop();
         continue;
       }
       const candidateSettings = candidateTrack.getSettings();
       if (candidateSettings.facingMode && candidateSettings.facingMode !== this.facingMode) {
-        for (const t of candidateStream.getTracks()) t.stop();
+        for (const t2 of candidateStream.getTracks()) t2.stop();
         continue;
       }
       try {
@@ -139,7 +164,7 @@ var CameraManager = class {
         }
       } catch {
       }
-      for (const t of candidateStream.getTracks()) t.stop();
+      for (const t2 of candidateStream.getTracks()) t2.stop();
     }
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
@@ -172,6 +197,7 @@ var CameraManager = class {
    * fewer constraints lets us still open the camera on those browsers.
    */
   async acquireStream() {
+    const labels = ["full constraints", "no resolution", "bare minimum"];
     const attempts = [
       // 1. Full constraints (facingMode/deviceId + resolution)
       this.buildConstraints(),
@@ -181,10 +207,18 @@ var CameraManager = class {
       { video: true, audio: false }
     ];
     let lastError;
-    for (const constraints of attempts) {
+    for (let i = 0; i < attempts.length; i++) {
+      const t = performance.now();
       try {
-        return await navigator.mediaDevices.getUserMedia(constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(attempts[i]);
+        console.debug(
+          `[QrScanner] getUserMedia(${labels[i]}): ${(performance.now() - t).toFixed(0)}ms \u2713`
+        );
+        return stream;
       } catch (err) {
+        console.debug(
+          `[QrScanner] getUserMedia(${labels[i]}): ${(performance.now() - t).toFixed(0)}ms \u2717 ${err instanceof DOMException ? err.name : err}`
+        );
         if (err instanceof DOMException) {
           if (err.name === "NotAllowedError") {
             throw new Error(
@@ -561,9 +595,17 @@ var Scanner = class {
     if (this.active && !this.paused) {
       return;
     }
+    const t0 = performance.now();
     await this.camera.start(this.video);
+    console.debug(
+      `[QrScanner] start: camera ready ${(performance.now() - t0).toFixed(0)}ms`
+    );
     if (!this.worker) {
+      const tw = performance.now();
       this.worker = this.createWorker();
+      console.debug(
+        `[QrScanner] start: worker created ${(performance.now() - tw).toFixed(0)}ms`
+      );
     }
     if (!this.frameExtractor) {
       this.frameExtractor = new FrameExtractor(this.video, {
@@ -588,6 +630,9 @@ var Scanner = class {
     });
     this.active = true;
     this.paused = false;
+    console.debug(
+      `[QrScanner] start: total ${(performance.now() - t0).toFixed(0)}ms`
+    );
   }
   stop() {
     this.frameExtractor?.stop();
