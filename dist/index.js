@@ -486,7 +486,7 @@ var ScanOverlay = class {
     this.overlayEl.className = "qr-scanner-region";
     const cw = this.container.clientWidth;
     const ch = this.container.clientHeight;
-    const size = Math.round(Math.max(cw * 3 / 8, ch * 2 / 3));
+    const size = Math.round(Math.min(cw, ch) * 2 / 3);
     Object.assign(this.overlayEl.style, {
       position: "absolute",
       top: "50%",

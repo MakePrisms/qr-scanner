@@ -156,17 +156,13 @@ export class ScanOverlay {
     this.overlayEl = document.createElement('div');
     this.overlayEl.className = 'qr-scanner-region';
 
-    // Compute placeholder size matching the default scan region formula
-    // (2/3 of the smaller video dimension, scaled by object-fit: cover)
-    // without knowing video dimensions yet. Assumes a 16:9 camera —
-    // the most common mobile camera aspect ratio. The formula:
-    //   region = 2/3 * 1080 * max(cw/1920, ch/1080)
-    //         = max(cw * 3/8, ch * 2/3)
-    // positionOverlayToRegion() will override with exact values once
+    // Placeholder size: 2/3 of the smaller container dimension ensures
+    // the overlay stays visible and centered before video dimensions are
+    // known. positionOverlayToRegion() overrides with exact values once
     // the camera starts.
     const cw = this.container.clientWidth;
     const ch = this.container.clientHeight;
-    const size = Math.round(Math.max((cw * 3) / 8, (ch * 2) / 3));
+    const size = Math.round((Math.min(cw, ch) * 2) / 3);
 
     Object.assign(this.overlayEl.style, {
       position: 'absolute',
