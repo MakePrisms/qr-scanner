@@ -170,9 +170,17 @@ export class CameraManager {
       const capabilities = track.getCapabilities() as MediaTrackCapabilities & {
         focusMode?: string[];
       };
-      if (capabilities.focusMode?.includes('continuous')) {
-        console.debug('[QrScanner] ensureBestCamera: skipped (has autofocus)');
-        return; // Current camera already has autofocus
+      if (
+        !capabilities.focusMode ||
+        capabilities.focusMode.includes('continuous')
+      ) {
+        // focusMode not reported (e.g. Safari/iOS) or has autofocus — skip.
+        // Only enter the candidate loop when the browser explicitly reports
+        // focusMode without 'continuous' (e.g. S24 + Brave ultrawide).
+        console.debug(
+          `[QrScanner] ensureBestCamera: skipped (focusMode: ${JSON.stringify(capabilities.focusMode)})`,
+        );
+        return;
       }
       console.debug(
         `[QrScanner] ensureBestCamera: current camera lacks autofocus (focusMode: ${JSON.stringify(capabilities.focusMode)})`,

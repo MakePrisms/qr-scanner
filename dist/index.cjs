@@ -145,8 +145,10 @@ var CameraManager = class {
     if (!track) return;
     try {
       const capabilities = track.getCapabilities();
-      if (capabilities.focusMode?.includes("continuous")) {
-        console.debug("[QrScanner] ensureBestCamera: skipped (has autofocus)");
+      if (!capabilities.focusMode || capabilities.focusMode.includes("continuous")) {
+        console.debug(
+          `[QrScanner] ensureBestCamera: skipped (focusMode: ${JSON.stringify(capabilities.focusMode)})`
+        );
         return;
       }
       console.debug(
