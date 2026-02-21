@@ -565,23 +565,14 @@ var ScanOverlay = class {
       zIndex: "10"
     });
   }
-  positionOverlayToRegion(region) {
+  positionOverlayToRegion(_region) {
     if (!this.overlayEl) return;
-    const videoWidth = this.video.videoWidth || 1;
-    const videoHeight = this.video.videoHeight || 1;
-    const rendered = getRenderedVideoRect(this.video);
-    const scaleX = rendered.width / videoWidth;
-    const scaleY = rendered.height / videoHeight;
-    const x = (region.x ?? 0) * scaleX + rendered.offsetX;
-    const y = (region.y ?? 0) * scaleY + rendered.offsetY;
-    const w = (region.width ?? videoWidth) * scaleX;
-    const h = (region.height ?? videoHeight) * scaleY;
+    const cw = this.container.clientWidth;
+    const ch = this.container.clientHeight;
+    const size = Math.round(Math.min(cw, ch) * 2 / 3);
     Object.assign(this.overlayEl.style, {
-      transform: "none",
-      left: `${x}px`,
-      top: `${y}px`,
-      width: `${w}px`,
-      height: `${h}px`
+      width: `${size}px`,
+      height: `${size}px`
     });
   }
 };

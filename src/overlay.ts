@@ -257,27 +257,25 @@ export class ScanOverlay {
     });
   }
 
-  private positionOverlayToRegion(region: ScanRegion): void {
+  private positionOverlayToRegion(_region: ScanRegion): void {
     if (!this.overlayEl) return;
 
-    const videoWidth = this.video.videoWidth || 1;
-    const videoHeight = this.video.videoHeight || 1;
-    const rendered = getRenderedVideoRect(this.video);
-    const scaleX = rendered.width / videoWidth;
-    const scaleY = rendered.height / videoHeight;
+    // Keep the overlay at a container-relative centered size rather than
+    // mapping scan region coordinates to display coordinates. With
+    // object-fit: cover on a portrait phone with a landscape camera, the
+    // mapped region extends beyond the container — fine once the camera is
+    // visible but causes a jarring jump from the initial placeholder.
+    // The overlay is a visual guide; the actual scan area (in the frame
+    // extractor) is unaffected and may be larger than what's shown.
+    const cw = this.container.clientWidth;
+    const ch = this.container.clientHeight;
+    const size = Math.round((Math.min(cw, ch) * 2) / 3);
 
-    const x = (region.x ?? 0) * scaleX + rendered.offsetX;
-    const y = (region.y ?? 0) * scaleY + rendered.offsetY;
-    const w = (region.width ?? videoWidth) * scaleX;
-    const h = (region.height ?? videoHeight) * scaleY;
-
-    // Clear CSS centering from initial placeholder positioning
+    // Only update size — initial CSS centering (top: 50%, left: 50%,
+    // transform: translate(-50%, -50%)) persists and handles re-centering.
     Object.assign(this.overlayEl.style, {
-      transform: 'none',
-      left: `${x}px`,
-      top: `${y}px`,
-      width: `${w}px`,
-      height: `${h}px`,
+      width: `${size}px`,
+      height: `${size}px`,
     });
   }
 }
