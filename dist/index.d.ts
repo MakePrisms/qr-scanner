@@ -36,6 +36,10 @@ type ScannerOptions = {
     decoderOptions?: Partial<ReaderOptions>;
 };
 
+declare class CameraPermissionError extends Error {
+    constructor(message?: string);
+}
+
 /**
  * High-performance QR code scanner for the web, powered by ZXing-C++ WebAssembly.
  */
@@ -96,4 +100,4 @@ declare class QrScanner {
     }): Promise<ScanResult>;
 }
 
-export { type Camera, type DeviceId, type FacingMode, type InversionMode, type Point, type ScanRegion, type ScanResult, type ScannerOptions, QrScanner as default };
+export { type Camera, CameraPermissionError, type DeviceId, type FacingMode, type InversionMode, type Point, type ScanRegion, type ScanResult, type ScannerOptions, QrScanner as default };

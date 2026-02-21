@@ -20,11 +20,18 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var index_exports = {};
 __export(index_exports, {
+  CameraPermissionError: () => CameraPermissionError,
   default: () => index_default
 });
 module.exports = __toCommonJS(index_exports);
 
 // src/camera.ts
+var CameraPermissionError = class extends Error {
+  constructor(message = "Camera access denied. Please grant camera permission and try again.") {
+    super(message);
+    this.name = "CameraPermissionError";
+  }
+};
 var CACHE_KEY_PREFIX = "@agicash/qr-scanner:camera:";
 function getCachedDeviceId(facingMode) {
   try {
@@ -285,9 +292,7 @@ var CameraManager = class {
         );
         if (err instanceof DOMException) {
           if (err.name === "NotAllowedError") {
-            throw new Error(
-              "Camera access denied. Please grant camera permission and try again."
-            );
+            throw new CameraPermissionError();
           }
           if (err.name === "NotFoundError") {
             throw new Error(
@@ -1047,4 +1052,8 @@ var QrScanner = class {
   }
 };
 var index_default = QrScanner;
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  CameraPermissionError
+});
 //# sourceMappingURL=index.cjs.map

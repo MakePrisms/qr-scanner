@@ -1,5 +1,5 @@
 import { Scanner, setWorkerUrl } from './scanner.js';
-import { CameraManager } from './camera.js';
+import { CameraManager, CameraPermissionError } from './camera.js';
 import { scanImage } from './scan-image.js';
 import { setZXingModuleOverrides } from 'zxing-wasm/reader';
 import type {
@@ -13,6 +13,8 @@ import type {
   InversionMode,
 } from './types.js';
 import type { ReaderOptions } from 'zxing-wasm/reader';
+
+export { CameraPermissionError };
 
 export type {
   ScanResult,

@@ -1,5 +1,14 @@
 import type { FacingMode, DeviceId, Camera } from './types.js';
 
+export class CameraPermissionError extends Error {
+  constructor(
+    message = 'Camera access denied. Please grant camera permission and try again.',
+  ) {
+    super(message);
+    this.name = 'CameraPermissionError';
+  }
+}
+
 const CACHE_KEY_PREFIX = '@agicash/qr-scanner:camera:';
 
 function getCachedDeviceId(facingMode: string): string | null {
@@ -350,9 +359,7 @@ export class CameraManager {
         );
         if (err instanceof DOMException) {
           if (err.name === 'NotAllowedError') {
-            throw new Error(
-              'Camera access denied. Please grant camera permission and try again.',
-            );
+            throw new CameraPermissionError();
           }
           if (err.name === 'NotFoundError') {
             throw new Error(

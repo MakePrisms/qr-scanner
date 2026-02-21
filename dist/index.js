@@ -1,4 +1,10 @@
 // src/camera.ts
+var CameraPermissionError = class extends Error {
+  constructor(message = "Camera access denied. Please grant camera permission and try again.") {
+    super(message);
+    this.name = "CameraPermissionError";
+  }
+};
 var CACHE_KEY_PREFIX = "@agicash/qr-scanner:camera:";
 function getCachedDeviceId(facingMode) {
   try {
@@ -259,9 +265,7 @@ var CameraManager = class {
         );
         if (err instanceof DOMException) {
           if (err.name === "NotAllowedError") {
-            throw new Error(
-              "Camera access denied. Please grant camera permission and try again."
-            );
+            throw new CameraPermissionError();
           }
           if (err.name === "NotFoundError") {
             throw new Error(
@@ -1021,6 +1025,7 @@ var QrScanner = class {
 };
 var index_default = QrScanner;
 export {
+  CameraPermissionError,
   index_default as default
 };
 //# sourceMappingURL=index.js.map
