@@ -1,3 +1,4 @@
+import { debug } from './debug.js';
 import type { FacingMode, DeviceId, Camera } from './types.js';
 
 export class CameraPermissionError extends Error {
@@ -63,21 +64,21 @@ export class CameraManager {
 
     this.stream = await this.acquireStream();
     const t1 = performance.now();
-    console.debug(`[QrScanner] acquireStream: ${(t1 - t0).toFixed(0)}ms`);
+    debug(`[QrScanner] acquireStream: ${(t1 - t0).toFixed(0)}ms`);
 
     // On some devices (e.g. Samsung S24 + Brave), facingMode: 'environment'
     // picks an ultrawide camera that lacks autofocus. Check and switch to a
     // better camera BEFORE showing on screen to avoid visible flicker.
     await this.ensureBestCamera();
     const t2 = performance.now();
-    console.debug(`[QrScanner] ensureBestCamera: ${(t2 - t1).toFixed(0)}ms`);
+    debug(`[QrScanner] ensureBestCamera: ${(t2 - t1).toFixed(0)}ms`);
 
     video.srcObject = this.stream;
     video.setAttribute('playsinline', 'true');
     await video.play();
     const t3 = performance.now();
-    console.debug(`[QrScanner] video.play: ${(t3 - t2).toFixed(0)}ms`);
-    console.debug(`[QrScanner] camera.start total: ${(t3 - t0).toFixed(0)}ms`);
+    debug(`[QrScanner] video.play: ${(t3 - t2).toFixed(0)}ms`);
+    debug(`[QrScanner] camera.start total: ${(t3 - t0).toFixed(0)}ms`);
 
     // Cache the final camera so subsequent starts skip ensureBestCamera
     if (this.facingMode === 'environment' || this.facingMode === 'user') {
@@ -175,9 +176,7 @@ export class CameraManager {
    */
   private async ensureBestCamera(): Promise<void> {
     if (this.facingMode !== 'environment' && this.facingMode !== 'user') {
-      console.debug(
-        '[QrScanner] ensureBestCamera: skipped (specific deviceId)',
-      );
+      debug('[QrScanner] ensureBestCamera: skipped (specific deviceId)');
       return;
     }
 
@@ -195,12 +194,12 @@ export class CameraManager {
         // focusMode not reported (e.g. Safari/iOS) or has autofocus — skip.
         // Only enter the candidate loop when the browser explicitly reports
         // focusMode without 'continuous' (e.g. S24 + Brave ultrawide).
-        console.debug(
+        debug(
           `[QrScanner] ensureBestCamera: skipped (focusMode: ${JSON.stringify(capabilities.focusMode)})`,
         );
         return;
       }
-      console.debug(
+      debug(
         `[QrScanner] ensureBestCamera: current camera lacks autofocus (focusMode: ${JSON.stringify(capabilities.focusMode)})`,
       );
     } catch {
@@ -222,7 +221,7 @@ export class CameraManager {
     const candidates = devices.filter(
       (d) => d.kind === 'videoinput' && d.deviceId !== currentDeviceId,
     );
-    console.debug(
+    debug(
       `[QrScanner] ensureBestCamera: testing ${candidates.length} candidate camera(s)`,
     );
     if (candidates.length === 0) return;
@@ -242,11 +241,11 @@ export class CameraManager {
           },
           audio: false,
         });
-        console.debug(
+        debug(
           `[QrScanner] ensureBestCamera: candidate ${candidate.label || candidate.deviceId.slice(0, 8)}: getUserMedia ${(performance.now() - t).toFixed(0)}ms`,
         );
       } catch {
-        console.debug(
+        debug(
           `[QrScanner] ensureBestCamera: candidate ${candidate.label || candidate.deviceId.slice(0, 8)}: getUserMedia failed ${(performance.now() - t).toFixed(0)}ms`,
         );
         continue;
@@ -358,12 +357,12 @@ export class CameraManager {
       const t = performance.now();
       try {
         const stream = await navigator.mediaDevices.getUserMedia(attempts[i]);
-        console.debug(
+        debug(
           `[QrScanner] getUserMedia(${labels[i]}): ${(performance.now() - t).toFixed(0)}ms ✓`,
         );
         return stream;
       } catch (err) {
-        console.debug(
+        debug(
           `[QrScanner] getUserMedia(${labels[i]}): ${(performance.now() - t).toFixed(0)}ms ✗ ${err instanceof DOMException ? err.name : err}`,
         );
         if (err instanceof DOMException) {

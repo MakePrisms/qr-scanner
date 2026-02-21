@@ -4,6 +4,7 @@ import {
   CameraNotFoundError,
   CameraPermissionError,
 } from './camera.js';
+import { setDebug } from './debug.js';
 import { scanImage } from './scan-image.js';
 import { setZXingModuleOverrides } from 'zxing-wasm/reader';
 import type {
@@ -146,6 +147,16 @@ class QrScanner {
    */
   static setWorkerUrl(url: string | URL): void {
     setWorkerUrl(url);
+  }
+
+  /**
+   * Enable or disable debug logging (performance timings, camera selection).
+   * Off by default. Useful for diagnosing camera issues in the browser console.
+   * @example
+   * QrScanner.setDebug(true);
+   */
+  static setDebug(enabled: boolean): void {
+    setDebug(enabled);
   }
 
   /** Scan a single image (not a video stream). */

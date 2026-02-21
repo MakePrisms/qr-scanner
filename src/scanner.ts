@@ -1,4 +1,5 @@
 import { CameraManager } from './camera.js';
+import { debug } from './debug.js';
 import { FrameExtractor } from './frame-extractor.js';
 import { ScanOverlay } from './overlay.js';
 import { calculateDefaultScanRegion } from './scan-region.js';
@@ -104,7 +105,7 @@ export class Scanner {
 
     // Start camera
     await this.camera.start(this.video);
-    console.debug(
+    debug(
       `[QrScanner] start: camera ready ${(performance.now() - t0).toFixed(0)}ms`,
     );
 
@@ -117,7 +118,7 @@ export class Scanner {
     if (!this.worker) {
       const tw = performance.now();
       this.worker = this.createWorker();
-      console.debug(
+      debug(
         `[QrScanner] start: worker created ${(performance.now() - tw).toFixed(0)}ms`,
       );
     }
@@ -138,9 +139,7 @@ export class Scanner {
     this.active = true;
     this.paused = false;
 
-    console.debug(
-      `[QrScanner] start: total ${(performance.now() - t0).toFixed(0)}ms`,
-    );
+    debug(`[QrScanner] start: total ${(performance.now() - t0).toFixed(0)}ms`);
   }
 
   stop(): void {
