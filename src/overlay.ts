@@ -156,13 +156,10 @@ export class ScanOverlay {
     this.overlayEl = document.createElement('div');
     this.overlayEl.className = 'qr-scanner-region';
 
-    // Placeholder size: 2/3 of the smaller container dimension ensures
-    // the overlay stays visible and centered before video dimensions are
-    // known. positionOverlayToRegion() overrides with exact values once
-    // the camera starts.
+    // Overlay size: 3/4 of the smaller container dimension, centered.
     const cw = this.container.clientWidth;
     const ch = this.container.clientHeight;
-    const size = Math.round((Math.min(cw, ch) * 2) / 3);
+    const size = Math.round((Math.min(cw, ch) * 3) / 4);
 
     Object.assign(this.overlayEl.style, {
       position: 'absolute',
@@ -269,7 +266,7 @@ export class ScanOverlay {
     // extractor) is unaffected and may be larger than what's shown.
     const cw = this.container.clientWidth;
     const ch = this.container.clientHeight;
-    const size = Math.round((Math.min(cw, ch) * 2) / 3);
+    const size = Math.round((Math.min(cw, ch) * 3) / 4);
 
     // Only update size — initial CSS centering (top: 50%, left: 50%,
     // transform: translate(-50%, -50%)) persists and handles re-centering.
