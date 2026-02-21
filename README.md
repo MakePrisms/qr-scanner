@@ -94,6 +94,16 @@ QrScanner.scanImage(source, options?): Promise<ScanResult>
 QrScanner.preload(): Promise<void>
 QrScanner.configureWasm(overrides): void
 QrScanner.setWorkerUrl(url): void
+QrScanner.setDebug(enabled): void
+```
+
+## Debug Logging
+
+The library includes performance profiling logs (camera acquisition timing, best-camera selection, etc.) that are **off by default**. Enable them at runtime for debugging:
+
+```ts
+QrScanner.setDebug(true);  // logs appear in console
+QrScanner.setDebug(false); // back to silent (default)
 ```
 
 ## Worker Loading
