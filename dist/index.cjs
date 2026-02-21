@@ -20,6 +20,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var index_exports = {};
 __export(index_exports, {
+  CameraNotFoundError: () => CameraNotFoundError,
   CameraPermissionError: () => CameraPermissionError,
   default: () => index_default
 });
@@ -30,6 +31,12 @@ var CameraPermissionError = class extends Error {
   constructor(message = "Camera access denied. Please grant camera permission and try again.") {
     super(message);
     this.name = "CameraPermissionError";
+  }
+};
+var CameraNotFoundError = class extends Error {
+  constructor(message = "No camera found. Please connect a camera and try again.") {
+    super(message);
+    this.name = "CameraNotFoundError";
   }
 };
 var CACHE_KEY_PREFIX = "@agicash/qr-scanner:camera:";
@@ -295,9 +302,7 @@ var CameraManager = class {
             throw new CameraPermissionError();
           }
           if (err.name === "NotFoundError") {
-            throw new Error(
-              "No camera found. Please connect a camera and try again."
-            );
+            throw new CameraNotFoundError();
           }
           lastError = err;
           continue;
@@ -1054,6 +1059,7 @@ var QrScanner = class {
 var index_default = QrScanner;
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  CameraNotFoundError,
   CameraPermissionError
 });
 //# sourceMappingURL=index.cjs.map

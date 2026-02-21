@@ -1,5 +1,9 @@
 import { Scanner, setWorkerUrl } from './scanner.js';
-import { CameraManager, CameraPermissionError } from './camera.js';
+import {
+  CameraManager,
+  CameraNotFoundError,
+  CameraPermissionError,
+} from './camera.js';
 import { scanImage } from './scan-image.js';
 import { setZXingModuleOverrides } from 'zxing-wasm/reader';
 import type {
@@ -14,7 +18,7 @@ import type {
 } from './types.js';
 import type { ReaderOptions } from 'zxing-wasm/reader';
 
-export { CameraPermissionError };
+export { CameraNotFoundError, CameraPermissionError };
 
 export type {
   ScanResult,

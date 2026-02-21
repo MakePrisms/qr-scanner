@@ -5,6 +5,12 @@ var CameraPermissionError = class extends Error {
     this.name = "CameraPermissionError";
   }
 };
+var CameraNotFoundError = class extends Error {
+  constructor(message = "No camera found. Please connect a camera and try again.") {
+    super(message);
+    this.name = "CameraNotFoundError";
+  }
+};
 var CACHE_KEY_PREFIX = "@agicash/qr-scanner:camera:";
 function getCachedDeviceId(facingMode) {
   try {
@@ -268,9 +274,7 @@ var CameraManager = class {
             throw new CameraPermissionError();
           }
           if (err.name === "NotFoundError") {
-            throw new Error(
-              "No camera found. Please connect a camera and try again."
-            );
+            throw new CameraNotFoundError();
           }
           lastError = err;
           continue;
@@ -1025,6 +1029,7 @@ var QrScanner = class {
 };
 var index_default = QrScanner;
 export {
+  CameraNotFoundError,
   CameraPermissionError,
   index_default as default
 };

@@ -9,6 +9,15 @@ export class CameraPermissionError extends Error {
   }
 }
 
+export class CameraNotFoundError extends Error {
+  constructor(
+    message = 'No camera found. Please connect a camera and try again.',
+  ) {
+    super(message);
+    this.name = 'CameraNotFoundError';
+  }
+}
+
 const CACHE_KEY_PREFIX = '@agicash/qr-scanner:camera:';
 
 function getCachedDeviceId(facingMode: string): string | null {
@@ -362,9 +371,7 @@ export class CameraManager {
             throw new CameraPermissionError();
           }
           if (err.name === 'NotFoundError') {
-            throw new Error(
-              'No camera found. Please connect a camera and try again.',
-            );
+            throw new CameraNotFoundError();
           }
           // NotReadableError or OverconstrainedError — try next fallback
           lastError = err;
