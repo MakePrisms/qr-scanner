@@ -56,6 +56,8 @@ describe('CameraManager', () => {
       configurable: true,
       writable: true,
     });
+    localStorage.removeItem('@agicash/qr-scanner:camera:environment');
+    localStorage.removeItem('@agicash/qr-scanner:camera:user');
   });
 
   it('requests environment-facing camera by default', async () => {
@@ -296,8 +298,6 @@ describe('CameraManager', () => {
       expect(
         localStorage.getItem('@agicash/qr-scanner:camera:environment'),
       ).toBeNull();
-
-      localStorage.removeItem('@agicash/qr-scanner:camera:environment');
     });
 
     it('still throws CameraPermissionError even with cached deviceId', async () => {
@@ -310,8 +310,124 @@ describe('CameraManager', () => {
       const video = createMockVideo();
 
       await expect(camera.start(video)).rejects.toThrow('Camera access denied');
+    });
 
-      localStorage.removeItem('@agicash/qr-scanner:camera:environment');
+    it('throws lastError when all fallback attempts fail', async () => {
+      const overconstrainedError = new OverconstrainedError(
+        'deviceId',
+        'Invalid constraint',
+      );
+
+      vi.mocked(navigator.mediaDevices.getUserMedia).mockRejectedValue(
+        overconstrainedError,
+      );
+
+      const camera = new CameraManager();
+      const video = createMockVideo();
+
+      await expect(camera.start(video)).rejects.toThrow();
+      // 3 standard attempts (full, no resolution, bare minimum)
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(3);
+    });
+
+    it('rethrows unexpected non-DOM errors immediately', async () => {
+      vi.mocked(navigator.mediaDevices.getUserMedia).mockRejectedValueOnce(
+        new TypeError('Unexpected error'),
+      );
+
+      const camera = new CameraManager();
+      const video = createMockVideo();
+
+      await expect(camera.start(video)).rejects.toThrow(TypeError);
+      // Should not have retried
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back on NotReadableError (DOMException)', async () => {
+      const notReadableError = new DOMException(
+        'Could not start video source',
+        'NotReadableError',
+      );
+
+      const track = createMockTrack();
+      const stream = createMockStream([track]);
+
+      vi.mocked(navigator.mediaDevices.getUserMedia)
+        .mockRejectedValueOnce(notReadableError) // full constraints fail
+        .mockResolvedValueOnce(stream); // no resolution succeeds
+
+      const camera = new CameraManager();
+      const video = createMockVideo();
+      await camera.start(video);
+
+      expect(video.srcObject).toBe(stream);
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
+    });
+
+    it('falls back when OverconstrainedError is not a DOMException (Safari/iOS)', async () => {
+      // On Safari/iOS, OverconstrainedError may not extend DOMException.
+      // Temporarily swap the global to simulate this browser behavior.
+      const OriginalOCE = globalThis.OverconstrainedError;
+      class SafariOverconstrainedError extends Error {
+        constraint: string;
+        constructor(constraint: string, message: string) {
+          super(message);
+          this.name = 'OverconstrainedError';
+          this.constraint = constraint;
+        }
+      }
+      globalThis.OverconstrainedError =
+        SafariOverconstrainedError as unknown as typeof OverconstrainedError;
+
+      try {
+        const err = new SafariOverconstrainedError('deviceId', 'Invalid');
+        // Verify this does NOT pass instanceof DOMException
+        expect(err instanceof DOMException).toBe(false);
+
+        const track = createMockTrack();
+        const stream = createMockStream([track]);
+
+        vi.mocked(navigator.mediaDevices.getUserMedia)
+          .mockRejectedValueOnce(err)
+          .mockResolvedValueOnce(stream);
+
+        const camera = new CameraManager();
+        const video = createMockVideo();
+        await camera.start(video);
+
+        expect(video.srcObject).toBe(stream);
+        expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
+      } finally {
+        globalThis.OverconstrainedError = OriginalOCE;
+      }
+    });
+
+    it('clears stale cached deviceId for user facingMode', async () => {
+      localStorage.setItem(
+        '@agicash/qr-scanner:camera:user',
+        'stale-user-device',
+      );
+
+      const overconstrainedError = new OverconstrainedError(
+        'deviceId',
+        'Invalid constraint',
+      );
+
+      const track = createMockTrack();
+      const stream = createMockStream([track]);
+
+      vi.mocked(navigator.mediaDevices.getUserMedia)
+        .mockRejectedValueOnce(overconstrainedError) // cached deviceId fails
+        .mockResolvedValueOnce(stream); // full constraints succeeds
+
+      const camera = new CameraManager({ preferredCamera: 'user' });
+      const video = createMockVideo();
+      await camera.start(video);
+
+      expect(video.srcObject).toBe(stream);
+      expect(
+        localStorage.getItem('@agicash/qr-scanner:camera:user'),
+      ).toBeNull();
     });
   });
 
@@ -461,6 +577,57 @@ describe('CameraManager', () => {
       // Should have fallen back to re-opening original by deviceId
       expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(3);
       expect(video.srcObject).toBe(fallbackStream);
+    });
+
+    it('leaves stream null when all ensureBestCamera recovery attempts fail', async () => {
+      // Initial: camera without autofocus
+      const initialTrack = createMockTrack({
+        getCapabilities: vi.fn().mockReturnValue({ focusMode: ['manual'] }),
+        getSettings: vi.fn().mockReturnValue({
+          deviceId: 'initial-cam',
+          facingMode: 'environment',
+        }),
+      });
+      const initialStream = createMockStream([initialTrack]);
+
+      const overconstrainedError = new OverconstrainedError(
+        'deviceId',
+        'Invalid constraint',
+      );
+
+      vi.mocked(navigator.mediaDevices.getUserMedia)
+        .mockResolvedValueOnce(initialStream) // acquireStream succeeds
+        // ensureBestCamera: candidate camera fails
+        .mockRejectedValueOnce(overconstrainedError)
+        // ensureBestCamera recovery: all 4 attempts fail
+        .mockRejectedValueOnce(overconstrainedError)
+        .mockRejectedValueOnce(overconstrainedError)
+        .mockRejectedValueOnce(overconstrainedError)
+        .mockRejectedValueOnce(overconstrainedError);
+
+      vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue([
+        {
+          kind: 'videoinput',
+          deviceId: 'initial-cam',
+          groupId: '',
+          label: 'Back Camera',
+        } as MediaDeviceInfo,
+        {
+          kind: 'videoinput',
+          deviceId: 'other-cam',
+          groupId: '',
+          label: 'Front Camera',
+        } as MediaDeviceInfo,
+      ]);
+
+      const camera = new CameraManager();
+      const video = createMockVideo();
+      // video.play() will be called with srcObject=null, which should fail
+      vi.mocked(video.play).mockRejectedValueOnce(
+        new DOMException('No supported sources', 'NotSupportedError'),
+      );
+
+      await expect(camera.start(video)).rejects.toThrow();
     });
 
     it('recovers with bare minimum when all ensureBestCamera fallbacks fail except last', async () => {

@@ -210,7 +210,10 @@ export class CameraManager {
       debug(
         `[QrScanner] ensureBestCamera: current camera lacks autofocus (focusMode: ${JSON.stringify(capabilities.focusMode)})`,
       );
-    } catch {
+    } catch (err) {
+      debug(
+        `[QrScanner] ensureBestCamera: skipped (getCapabilities failed: ${err instanceof Error ? err.message : err})`,
+      );
       return;
     }
 
@@ -221,7 +224,10 @@ export class CameraManager {
     let devices: MediaDeviceInfo[];
     try {
       devices = await navigator.mediaDevices.enumerateDevices();
-    } catch {
+    } catch (err) {
+      debug(
+        `[QrScanner] ensureBestCamera: skipped (enumerateDevices failed: ${err instanceof Error ? err.message : err})`,
+      );
       return;
     }
     if (!Array.isArray(devices)) return;
@@ -252,10 +258,13 @@ export class CameraManager {
         debug(
           `[QrScanner] ensureBestCamera: candidate ${candidate.label || candidate.deviceId.slice(0, 8)}: getUserMedia ${(performance.now() - t).toFixed(0)}ms`,
         );
-      } catch {
+      } catch (err) {
         debug(
-          `[QrScanner] ensureBestCamera: candidate ${candidate.label || candidate.deviceId.slice(0, 8)}: getUserMedia failed ${(performance.now() - t).toFixed(0)}ms`,
+          `[QrScanner] ensureBestCamera: candidate ${candidate.label || candidate.deviceId.slice(0, 8)}: getUserMedia failed ${(performance.now() - t).toFixed(0)}ms — ${err instanceof Error ? err.name : err}`,
         );
+        if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          throw new CameraPermissionError();
+        }
         continue;
       }
 
@@ -288,8 +297,10 @@ export class CameraManager {
           this.stream = candidateStream;
           return;
         }
-      } catch {
-        // Can't check capabilities, skip
+      } catch (err) {
+        debug(
+          `[QrScanner] ensureBestCamera: candidate getCapabilities failed — ${err instanceof Error ? err.message : err}`,
+        );
       }
 
       for (const t of candidateStream.getTracks()) t.stop();
@@ -315,16 +326,28 @@ export class CameraManager {
       { video: true, audio: false },
     ];
 
+    let lastRecoveryError: unknown;
     for (const constraints of recoveryAttempts) {
       try {
         this.stream = await navigator.mediaDevices.getUserMedia(constraints);
         return;
-      } catch {
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          throw new CameraPermissionError();
+        }
+        if (err instanceof DOMException && err.name === 'NotFoundError') {
+          throw new CameraNotFoundError();
+        }
+        lastRecoveryError = err;
+        debug(
+          `[QrScanner] ensureBestCamera recovery failed: ${err instanceof Error ? err.name : err}`,
+        );
         continue;
       }
     }
-    // All recovery attempts failed — stream remains null.
-    // start() will fail at video.play(), surfacing the error to the caller.
+    debug(
+      `[QrScanner] ensureBestCamera: all recovery attempts failed, last error: ${lastRecoveryError instanceof Error ? lastRecoveryError.message : lastRecoveryError}`,
+    );
   }
 
   private getVideoTrack(): MediaStreamTrack | null {
