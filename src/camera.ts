@@ -37,6 +37,14 @@ function setCachedDeviceId(facingMode: string, deviceId: string): void {
   }
 }
 
+function clearCachedDeviceId(facingMode: string): void {
+  try {
+    localStorage.removeItem(`${CACHE_KEY_PREFIX}${facingMode}`);
+  } catch {
+    // localStorage unavailable — ignore
+  }
+}
+
 export interface CameraConfig {
   preferredCamera?: FacingMode | DeviceId;
   cameraResolution?: {
@@ -287,25 +295,36 @@ export class CameraManager {
       for (const t of candidateStream.getTracks()) t.stop();
     }
 
-    // No better camera found — re-open the original
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+    // No better camera found — re-open the original with progressively
+    // simpler constraints so we never leave this.stream as null.
+    const recoveryAttempts: MediaStreamConstraints[] = [
+      // Original deviceId + resolution
+      {
         video: {
           deviceId: currentDeviceId ? { exact: currentDeviceId } : undefined,
           width: this.resolution?.width ?? { ideal: 1920 },
           height: this.resolution?.height ?? { ideal: 1080 },
         },
         audio: false,
-      });
-    } catch {
+      },
+      // facingMode + resolution
+      this.buildConstraints(),
+      // facingMode only
+      this.buildConstraints(false),
+      // Bare minimum — should always succeed if a camera exists
+      { video: true, audio: false },
+    ];
+
+    for (const constraints of recoveryAttempts) {
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia(
-          this.buildConstraints(),
-        );
+        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+        return;
       } catch {
-        // Could not recover camera
+        continue;
       }
     }
+    // All recovery attempts failed — stream remains null.
+    // start() will fail at video.play(), surfacing the error to the caller.
   }
 
   private getVideoTrack(): MediaStreamTrack | null {
@@ -322,14 +341,16 @@ export class CameraManager {
    * fewer constraints lets us still open the camera on those browsers.
    */
   private async acquireStream(): Promise<MediaStream> {
-    const labels: string[] = [];
-    const attempts: MediaStreamConstraints[] = [];
+    const attempts: {
+      label: string;
+      constraints: MediaStreamConstraints;
+      isCachedDeviceId?: boolean;
+    }[] = [];
 
     // If we've previously found a good camera for this facingMode, try it first
     if (this.facingMode === 'environment' || this.facingMode === 'user') {
       const cachedId = getCachedDeviceId(this.facingMode);
       if (cachedId) {
-        labels.push('cached deviceId');
         const video: MediaTrackConstraints = {
           deviceId: { exact: cachedId },
         };
@@ -337,46 +358,61 @@ export class CameraManager {
         else video.width = { ideal: 1920 };
         if (this.resolution?.height) video.height = this.resolution.height;
         else video.height = { ideal: 1080 };
-        attempts.push({ video, audio: false });
+        attempts.push({
+          label: 'cached deviceId',
+          constraints: { video, audio: false },
+          isCachedDeviceId: true,
+        });
       }
     }
 
     // Standard fallback chain
-    labels.push('full constraints', 'no resolution', 'bare minimum');
     attempts.push(
-      // facingMode/deviceId + resolution
-      this.buildConstraints(),
-      // facingMode/deviceId only, no resolution
-      this.buildConstraints(false),
-      // Bare minimum
-      { video: true, audio: false },
+      { label: 'full constraints', constraints: this.buildConstraints() },
+      { label: 'no resolution', constraints: this.buildConstraints(false) },
+      { label: 'bare minimum', constraints: { video: true, audio: false } },
     );
 
     let lastError: unknown;
-    for (let i = 0; i < attempts.length; i++) {
+    for (const attempt of attempts) {
       const t = performance.now();
       try {
-        const stream = await navigator.mediaDevices.getUserMedia(attempts[i]);
+        const stream = await navigator.mediaDevices.getUserMedia(
+          attempt.constraints,
+        );
         debug(
-          `[QrScanner] getUserMedia(${labels[i]}): ${(performance.now() - t).toFixed(0)}ms ✓`,
+          `[QrScanner] getUserMedia(${attempt.label}): ${(performance.now() - t).toFixed(0)}ms ✓`,
         );
         return stream;
       } catch (err) {
         debug(
-          `[QrScanner] getUserMedia(${labels[i]}): ${(performance.now() - t).toFixed(0)}ms ✗ ${err instanceof DOMException ? err.name : err}`,
+          `[QrScanner] getUserMedia(${attempt.label}): ${(performance.now() - t).toFixed(0)}ms ✗ ${err instanceof Error ? err.name : err}`,
         );
-        if (err instanceof DOMException) {
-          if (err.name === 'NotAllowedError') {
-            throw new CameraPermissionError();
-          }
-          if (err.name === 'NotFoundError') {
-            throw new CameraNotFoundError();
-          }
-          // NotReadableError or OverconstrainedError — try next fallback
-          lastError = err;
-          continue;
+        // Permission denied and no camera are fatal — no fallback can help.
+        if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          throw new CameraPermissionError();
         }
-        throw err;
+        if (err instanceof DOMException && err.name === 'NotFoundError') {
+          throw new CameraNotFoundError();
+        }
+        // DOMException subtypes (NotReadableError, etc.) and
+        // OverconstrainedError are retryable with simpler constraints.
+        if (
+          !(err instanceof DOMException) &&
+          !(err instanceof OverconstrainedError)
+        ) {
+          throw err;
+        }
+        if (attempt.isCachedDeviceId) {
+          // Stale cached deviceId (e.g. iOS regenerated device IDs after an
+          // update). Clear it so subsequent attempts don't repeat the failure.
+          clearCachedDeviceId(this.facingMode);
+          debug(
+            `[QrScanner] cleared stale cached deviceId for "${this.facingMode}"`,
+          );
+        }
+        lastError = err;
+        continue;
       }
     }
 
