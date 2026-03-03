@@ -24,23 +24,9 @@ function getRenderedVideoRect(video: HTMLVideoElement): {
 
   const objectFit = getComputedStyle(video).objectFit;
 
-  if (objectFit === 'cover') {
-    const scale = Math.max(
-      elementWidth / videoWidth,
-      elementHeight / videoHeight,
-    );
-    const renderedWidth = videoWidth * scale;
-    const renderedHeight = videoHeight * scale;
-    return {
-      offsetX: (elementWidth - renderedWidth) / 2,
-      offsetY: (elementHeight - renderedHeight) / 2,
-      width: renderedWidth,
-      height: renderedHeight,
-    };
-  }
-
-  if (objectFit === 'contain') {
-    const scale = Math.min(
+  if (objectFit === 'cover' || objectFit === 'contain') {
+    const scaleFn = objectFit === 'cover' ? Math.max : Math.min;
+    const scale = scaleFn(
       elementWidth / videoWidth,
       elementHeight / videoHeight,
     );

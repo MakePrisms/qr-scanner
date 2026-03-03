@@ -1,30 +1,7 @@
 import { readBarcodes, type ReaderOptions } from 'zxing-wasm/reader';
-import type { ScanResult, ScanRegion, Point } from './types.js';
+import type { ScanResult, ScanRegion } from './types.js';
 import { loadImageData } from './utils.js';
-
-const defaultReaderOptions: ReaderOptions = {
-  formats: ['QRCode'],
-  tryHarder: true,
-  tryInvert: true,
-  tryRotate: true,
-  tryDenoise: false,
-  tryDownscale: true,
-  maxNumberOfSymbols: 1,
-};
-
-function mapPosition(position: {
-  topLeft: Point;
-  topRight: Point;
-  bottomLeft: Point;
-  bottomRight: Point;
-}): Point[] {
-  return [
-    position.topLeft,
-    position.topRight,
-    position.bottomRight,
-    position.bottomLeft,
-  ];
-}
+import { DEFAULT_READER_OPTIONS, mapPosition } from './decoder-utils.js';
 
 /** Input types that zxing-wasm can handle directly (no canvas needed). */
 type DirectInput = Blob | ArrayBuffer | Uint8Array | ImageData;
@@ -58,7 +35,7 @@ export async function scanImage(
   },
 ): Promise<ScanResult> {
   const readerOptions: ReaderOptions = {
-    ...defaultReaderOptions,
+    ...DEFAULT_READER_OPTIONS,
     ...options?.decoderOptions,
     formats: ['QRCode'],
   };
