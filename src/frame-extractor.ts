@@ -59,10 +59,6 @@ export class FrameExtractor {
     this.workerBusy = false;
   }
 
-  markWorkerBusy(): void {
-    this.workerBusy = true;
-  }
-
   private tick = (): void => {
     if (!this.running) return;
 

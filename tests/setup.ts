@@ -25,3 +25,17 @@ if (typeof globalThis.ImageData === 'undefined') {
 
   globalThis.ImageData = ImageDataPolyfill as unknown as typeof ImageData;
 }
+
+// Polyfill OverconstrainedError for jsdom environment (it's missing in jsdom)
+if (typeof globalThis.OverconstrainedError === 'undefined') {
+  class OverconstrainedErrorPolyfill extends DOMException {
+    constraint: string;
+    constructor(constraint: string, message = '') {
+      super(message, 'OverconstrainedError');
+      this.constraint = constraint;
+    }
+  }
+
+  globalThis.OverconstrainedError =
+    OverconstrainedErrorPolyfill as unknown as typeof OverconstrainedError;
+}

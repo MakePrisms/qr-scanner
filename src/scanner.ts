@@ -214,18 +214,9 @@ export class Scanner {
   setInversionMode(mode: InversionMode): void {
     if (!this.worker) return;
 
-    const options: Partial<ReaderOptions> = {};
-    switch (mode) {
-      case 'original':
-        options.tryInvert = false;
-        break;
-      case 'invert':
-        options.tryInvert = true;
-        break;
-      case 'both':
-        options.tryInvert = true;
-        break;
-    }
+    const options: Partial<ReaderOptions> = {
+      tryInvert: mode !== 'original',
+    };
 
     const msg: WorkerRequest = { type: 'configure', options };
     this.worker.postMessage(msg);
